@@ -97,6 +97,8 @@ public final class RegistryTool {
           .put("lock_domain", LockDomainCommand.class)
           .put("login", LoginCommand.class)
           .put("logout", LogoutCommand.class)
+          .put("mosapi_start", MosapiStartCommand.class)
+          .put("mosapi_stop", MosapiStopCommand.class)
           .put("pending_escrow", PendingEscrowCommand.class)
           .put("recreate_billing_recurrences", RecreateBillingRecurrencesCommand.class)
           .put("registrar_poc", RegistrarPocCommand.class)

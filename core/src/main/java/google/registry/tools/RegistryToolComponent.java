@@ -33,9 +33,11 @@ import google.registry.persistence.PersistenceModule.ReadOnlyReplicaJpaTm;
 import google.registry.persistence.transaction.JpaTransactionManager;
 import google.registry.privileges.secretmanager.SecretManagerModule;
 import google.registry.rde.RdeModule;
+import google.registry.reporting.mosapi.MosApiCredentialModule;
 import google.registry.request.Modules.GsonModule;
 import google.registry.request.Modules.UrlConnectionServiceModule;
 import google.registry.tools.AuthModule.LocalCredentialModule;
+import google.registry.util.HttpModule;
 import google.registry.util.UtilsModule;
 import google.registry.whois.NonCachingWhoisModule;
 import jakarta.inject.Singleton;
@@ -68,7 +70,9 @@ import javax.annotation.Nullable;
       SecretManagerModule.class,
       UrlConnectionServiceModule.class,
       UtilsModule.class,
-      NonCachingWhoisModule.class
+      NonCachingWhoisModule.class,
+      MosApiCredentialModule.class,
+      HttpModule.class
     })
 interface RegistryToolComponent {
   void inject(AckPollMessagesCommand command);
@@ -164,6 +168,10 @@ interface RegistryToolComponent {
   void inject(ValidateLoginCredentialsCommand command);
 
   void inject(WhoisQueryCommand command);
+
+  void inject(MosapiStartCommand mosApiStartCommand);
+
+  void inject(MosapiStopCommand mosApiStopCommand);
 
   ServiceConnection serviceConnection();
 
