@@ -14,15 +14,15 @@
 
 package google.registry.reporting.mosapi;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.FluentLogger;
 import google.registry.config.RegistryConfig.Config;
+import google.registry.util.HttpUtils;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
-import java.net.URI;
 import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -86,16 +86,10 @@ public final class MosApiClient {
     String auth = username + ":" + password;
     String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
 
-    HttpRequest request =
-        HttpRequest.newBuilder()
-            .uri(URI.create(loginUrl))
-            .header("Authorization", "Basic " + encodedAuth)
-            .POST(HttpRequest.BodyPublishers.noBody())
-            .build();
-
     try {
       HttpResponse<String> response =
-          httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+          HttpUtils.sendPostRequest(
+              httpClient, loginUrl, ImmutableMap.of("Authorization", "Basic " + encodedAuth));
 
       switch (response.statusCode()) {
         case 200:
@@ -131,15 +125,9 @@ public final class MosApiClient {
     if (!isLoggedIn) {
       return; // Already logged out.
     }
-    HttpRequest request =
-        HttpRequest.newBuilder()
-            .uri(URI.create(logoutUrl))
-            .POST(HttpRequest.BodyPublishers.noBody())
-            .build();
 
     try {
-      HttpResponse<String> response =
-          httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+      HttpResponse<String> response = HttpUtils.sendPostRequest(httpClient, logoutUrl);
 
       switch (response.statusCode()) {
         case 200:
