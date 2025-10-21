@@ -13,6 +13,7 @@
 // limitations under the License.
 
 package google.registry.util;
+
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.net.URI;
@@ -51,8 +52,7 @@ public final class HttpUtils {
   public static HttpResponse<String> sendGetRequest(
       HttpClient httpClient, String url, Map<String, String> headers)
       throws IOException, InterruptedException {
-    HttpRequest.Builder requestBuilder =
-        HttpRequest.newBuilder().uri(URI.create(url)).GET();
+    HttpRequest.Builder requestBuilder = HttpRequest.newBuilder().uri(URI.create(url)).GET();
     for (Map.Entry<String, String> header : headers.entrySet()) {
       requestBuilder.header(header.getKey(), header.getValue());
     }
@@ -105,6 +105,6 @@ public final class HttpUtils {
    */
   private static HttpResponse<String> send(HttpClient httpClient, HttpRequest request)
       throws IOException, InterruptedException {
-      return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
   }
 }

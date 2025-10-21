@@ -27,12 +27,6 @@ import java.util.function.Function;
 public class MosApiCredentialModule {
 
   /**
-   * Returns the default entityType.
-   *
-   * @return "ry" for registry, "rr" for registrar.
-   */
-
-  /**
    * Provides a Provider for the MoSAPI username.
    *
    * <p>This method returns a Dagger {@link Provider} that can be used to fetch the username for a

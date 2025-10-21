@@ -20,6 +20,7 @@ import google.registry.config.RegistryConfig.Config;
 import google.registry.util.HttpUtils;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
 import java.net.http.HttpClient;
@@ -34,6 +35,7 @@ import java.util.function.Function;
  * <p>This client handles the session lifecycle (login/logout) and provides methods to access the
  * various MoSAPI endpoints. It is designed to be reusable and can be injected where needed.
  */
+@Singleton
 public final class MosApiClient {
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
   private final String baseUrl;
