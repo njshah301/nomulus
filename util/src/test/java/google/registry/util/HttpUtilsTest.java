@@ -17,14 +17,19 @@ package google.registry.util;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.Map;
+import org.apache.http.HttpException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -34,57 +39,166 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class HttpUtilsTest {
+  private static final String TEST_URL = "https://example.com/test";
+
   @Mock private HttpClient mockHttpClient;
   @Mock private HttpResponse<String> mockHttpResponse;
-  @Captor private ArgumentCaptor<HttpRequest> requestCaptor;
+  @Captor private ArgumentCaptor<HttpRequest> httpRequestCaptor;
 
   @Test
-  void sendGetRequest_success_returnsResponse() throws Exception {
-    when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+  void sendGetRequest_noHeaders_success() throws IOException, InterruptedException {
+    when(mockHttpClient.send(httpRequestCaptor.capture(), eq(HttpResponse.BodyHandlers.ofString())))
         .thenReturn(mockHttpResponse);
-    HttpResponse<String> response = HttpUtils.sendGetRequest(mockHttpClient, "https://example.com");
+
+    HttpResponse<String> response = HttpUtils.sendGetRequest(mockHttpClient, TEST_URL);
+
     assertThat(response).isSameInstanceAs(mockHttpResponse);
+    HttpRequest request = httpRequestCaptor.getValue();
+
+    assertThat(request.uri()).isEqualTo(URI.create(TEST_URL));
+    assertThat(request.method()).isEqualTo("GET");
+    assertThat(request.headers().map()).isEmpty();
   }
 
   @Test
-  void sendPostRequest_success_returnsResponse() throws Exception {
-    when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+  void sendGetRequest_withHeaders_success() throws IOException, InterruptedException {
+    when(mockHttpClient.send(httpRequestCaptor.capture(), eq(HttpResponse.BodyHandlers.ofString())))
         .thenReturn(mockHttpResponse);
+    Map<String, String> headers =
+        ImmutableMap.of("Auth", "Bearer token", "Content-Type", "application/json");
+
+    HttpResponse<String> response = HttpUtils.sendGetRequest(mockHttpClient, TEST_URL, headers);
+
+    assertThat(response).isSameInstanceAs(mockHttpResponse);
+    HttpRequest request = httpRequestCaptor.getValue();
+
+    assertThat(request.uri()).isEqualTo(URI.create(TEST_URL));
+    assertThat(request.method()).isEqualTo("GET");
+    assertThat(request.headers().firstValue("Auth")).hasValue("Bearer token");
+    assertThat(request.headers().firstValue("Content-Type")).hasValue("application/json");
+  }
+
+  @Test
+  void sendPostRequest_noBody_noHeaders_success()
+      throws HttpException, IOException, InterruptedException {
+    when(mockHttpClient.send(httpRequestCaptor.capture(), eq(HttpResponse.BodyHandlers.ofString())))
+        .thenReturn(mockHttpResponse);
+
+    HttpResponse<String> response = HttpUtils.sendPostRequest(mockHttpClient, TEST_URL);
+
+    assertThat(response).isSameInstanceAs(mockHttpResponse);
+    HttpRequest request = httpRequestCaptor.getValue();
+
+    assertThat(request.uri()).isEqualTo(URI.create(TEST_URL));
+    assertThat(request.method()).isEqualTo("POST");
+    assertThat(request.headers().map()).isEmpty();
+    assertThat(request.bodyPublisher()).isPresent();
+    assertThat(request.bodyPublisher().get().contentLength()).isEqualTo(0);
+  }
+
+  @Test
+  void sendPostRequest_noBody_withHeaders_success() throws IOException, InterruptedException {
+    when(mockHttpClient.send(httpRequestCaptor.capture(), eq(HttpResponse.BodyHandlers.ofString())))
+        .thenReturn(mockHttpResponse);
+    Map<String, String> headers = ImmutableMap.of("X-Request-ID", "12345");
+
+    HttpResponse<String> response = HttpUtils.sendPostRequest(mockHttpClient, TEST_URL, headers);
+
+    assertThat(response).isSameInstanceAs(mockHttpResponse);
+    HttpRequest request = httpRequestCaptor.getValue();
+
+    assertThat(request.uri()).isEqualTo(URI.create(TEST_URL));
+    assertThat(request.method()).isEqualTo("POST");
+    assertThat(request.headers().firstValue("X-Request-ID")).hasValue("12345");
+    assertThat(request.bodyPublisher()).isPresent();
+    assertThat(request.bodyPublisher().get().contentLength()).isEqualTo(0);
+  }
+
+  @Test
+  void sendPostRequest_withBody_success() throws IOException, InterruptedException {
+    when(mockHttpClient.send(httpRequestCaptor.capture(), eq(HttpResponse.BodyHandlers.ofString())))
+        .thenReturn(mockHttpResponse);
+    Map<String, String> headers = ImmutableMap.of("Content-Type", "application/json");
+    String body = "{\"key\":\"value\"}";
+
     HttpResponse<String> response =
-        HttpUtils.sendPostRequest(mockHttpClient, "https://example.com");
+        HttpUtils.sendPostRequest(mockHttpClient, TEST_URL, headers, body);
+
     assertThat(response).isSameInstanceAs(mockHttpResponse);
+    HttpRequest request = httpRequestCaptor.getValue();
+
+    assertThat(request.uri()).isEqualTo(URI.create(TEST_URL));
+    assertThat(request.method()).isEqualTo("POST");
+    assertThat(request.headers().firstValue("Content-Type")).hasValue("application/json");
+    assertThat(request.bodyPublisher()).isPresent();
+    // Corrected line with StandardCharsets.UTF_8
+    assertThat(request.bodyPublisher().get().contentLength())
+        .isEqualTo(body.getBytes(StandardCharsets.UTF_8).length);
   }
 
   @Test
-  void sendPostRequest_withHeaders_headersAreSet() throws Exception {
-    when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+  void sendPostRequest_withNullBody_success() throws IOException, InterruptedException {
+    when(mockHttpClient.send(httpRequestCaptor.capture(), eq(HttpResponse.BodyHandlers.ofString())))
         .thenReturn(mockHttpResponse);
-    HttpUtils.sendPostRequest(
-        mockHttpClient, "https://example.com", ImmutableMap.of("Authorization", "Basic 12345"));
-    verify(mockHttpClient).send(requestCaptor.capture(), any());
-    assertThat(requestCaptor.getValue().headers().firstValue("Authorization"))
-        .hasValue("Basic 12345");
+    Map<String, String> headers = ImmutableMap.of("X-Request-ID", "abc");
+
+    HttpResponse<String> response =
+        HttpUtils.sendPostRequest(mockHttpClient, TEST_URL, headers, null);
+
+    assertThat(response).isSameInstanceAs(mockHttpResponse);
+    HttpRequest request = httpRequestCaptor.getValue();
+
+    assertThat(request.uri()).isEqualTo(URI.create(TEST_URL));
+    assertThat(request.method()).isEqualTo("POST");
+    assertThat(request.headers().firstValue("X-Request-ID")).hasValue("abc");
+    assertThat(request.bodyPublisher()).isPresent();
+    assertThat(request.bodyPublisher().get().contentLength()).isEqualTo(0);
   }
 
   @Test
-  void send_ioException_throwsIOException() throws Exception {
+  void sendPostRequest_withEmptyBody_success() throws IOException, InterruptedException {
+    when(mockHttpClient.send(httpRequestCaptor.capture(), eq(HttpResponse.BodyHandlers.ofString())))
+        .thenReturn(mockHttpResponse);
+    Map<String, String> headers = Collections.emptyMap();
+
+    HttpResponse<String> response =
+        HttpUtils.sendPostRequest(mockHttpClient, TEST_URL, headers, "");
+
+    assertThat(response).isSameInstanceAs(mockHttpResponse);
+    HttpRequest request = httpRequestCaptor.getValue();
+
+    assertThat(request.uri()).isEqualTo(URI.create(TEST_URL));
+    assertThat(request.method()).isEqualTo("POST");
+    assertThat(request.headers().map()).isEmpty();
+    assertThat(request.bodyPublisher()).isPresent();
+    assertThat(request.bodyPublisher().get().contentLength()).isEqualTo(0);
+  }
+
+  @Test
+  void send_throwsIOException() throws IOException, InterruptedException {
     when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
         .thenThrow(new IOException("Network failed"));
-    IOException e =
-        assertThrows(
-            IOException.class,
-            () -> HttpUtils.sendGetRequest(mockHttpClient, "https://example.com"));
-    assertThat(e).hasMessageThat().isEqualTo("Network failed");
+
+    assertThrows(
+        IOException.class,
+        () -> HttpUtils.sendGetRequest(mockHttpClient, TEST_URL, Collections.emptyMap()));
+
+    assertThrows(
+        IOException.class,
+        () -> HttpUtils.sendPostRequest(mockHttpClient, TEST_URL, Collections.emptyMap(), "body"));
   }
 
   @Test
-  void send_interruptedException_throwsInterruptedException() throws Exception {
+  void send_throwsInterruptedException() throws IOException, InterruptedException {
     when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-        .thenThrow(new InterruptedException("Request interrupted"));
-    InterruptedException e =
-        assertThrows(
-            InterruptedException.class,
-            () -> HttpUtils.sendGetRequest(mockHttpClient, "https://example.com"));
-    assertThat(e).hasMessageThat().isEqualTo("Request interrupted");
+        .thenThrow(new InterruptedException("Request cancelled"));
+
+    assertThrows(
+        InterruptedException.class,
+        () -> HttpUtils.sendGetRequest(mockHttpClient, TEST_URL, Collections.emptyMap()));
+
+    assertThrows(
+        InterruptedException.class,
+        () -> HttpUtils.sendPostRequest(mockHttpClient, TEST_URL, Collections.emptyMap(), "body"));
   }
 }

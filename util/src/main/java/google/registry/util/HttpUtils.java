@@ -95,6 +95,34 @@ public final class HttpUtils {
   }
 
   /**
+   * Sends an HTTP POST request with a String body and custom headers to the specified URL.
+   *
+   * @param httpClient the {@link HttpClient} to use for sending the request
+   * @param url the target URL
+   * @param headers a {@link Map} of header keys and values to add to the request
+   * @param body the String request body to send (can be null or empty for no body)
+   * @return the {@link HttpResponse} as a String
+   * @throws IOException if an I/O error occurs
+   * @throws InterruptedException if the request is interrupted
+   */
+  public static HttpResponse<String> sendPostRequest(
+      HttpClient httpClient, String url, Map<String, String> headers, String body)
+      throws IOException, InterruptedException {
+    HttpRequest.Builder requestBuilder = HttpRequest.newBuilder().uri(URI.create(url));
+
+    if (body == null || body.isEmpty()) {
+      requestBuilder.POST(HttpRequest.BodyPublishers.noBody());
+    } else {
+      requestBuilder.POST(HttpRequest.BodyPublishers.ofString(body));
+    }
+
+    for (Map.Entry<String, String> header : headers.entrySet()) {
+      requestBuilder.header(header.getKey(), header.getValue());
+    }
+    return send(httpClient, requestBuilder.build());
+  }
+
+  /**
    * Sends a pre-built {@link HttpRequest} and handles exceptions.
    *
    * @param httpClient the client
