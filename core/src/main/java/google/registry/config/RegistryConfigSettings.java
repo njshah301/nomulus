@@ -91,7 +91,6 @@ public class RegistryConfigSettings {
     public String contactAndHostRoidSuffix;
     public String productName;
     public String customLogicFactoryClass;
-    public String whoisCommandFactoryClass;
     public String dnsCountQueryCoordinatorClass;
     public int contactAutomaticTransferDays;
     public String greetingServerId;
@@ -103,9 +102,6 @@ public class RegistryConfigSettings {
     public String registryAdminClientId;
     public String premiumTermsExportDisclaimer;
     public String reservedTermsExportDisclaimer;
-    public String whoisRedactedEmailText;
-    public String whoisDisclaimer;
-    public String domainBlockedByBsaTemplate;
     public String rdapTos;
     public String rdapTosStaticUrl;
     public String registryName;

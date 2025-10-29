@@ -30,7 +30,6 @@ def screenshotsForGoldensDir = "${project.buildDir}/screenshots_for_goldens"
 def newGoldensDir = "${project.buildDir}/new_golden_images"
 def goldensDir =
   "${javaTestDir}/google/registry/webdriver/goldens/chrome-linux"
-def jsDir = "${project.projectDir}/src/main/javascript"
 
 // Tests that fail when running Gradle in a docker container, e. g. when
 // building the release artifacts in Google Cloud Build.
@@ -55,9 +54,6 @@ def dockerIncompatibleTestPatterns = [
 // objects retained by frameworks.
 // TODO(weiminyu): identify cause and fix offending tests.
 def fragileTestPatterns = [
-    // Changes cache timeouts and for some reason appears to have contention
-    // with other tests.
-    "google/registry/whois/WhoisCommandFactoryTest.*",
     // Breaks random other tests when running with standardTests.
     "google/registry/bsa/UploadBsaUnavailableDomainsActionTest.*",
     // Currently changes a global configuration parameter that for some reason
