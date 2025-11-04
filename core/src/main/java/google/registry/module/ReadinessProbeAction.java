@@ -81,6 +81,20 @@ public class ReadinessProbeAction implements Runnable {
   }
 
   @Action(
+      service = GaeService.MOSAPI,
+      gkeService = GkeService.MOSAPI,
+      path = ReadinessProbeActionMosApi.PATH,
+      auth = Auth.AUTH_PUBLIC)
+  public static class ReadinessProbeActionMosApi extends ReadinessProbeAction {
+    public static final String PATH = "/ready/mosapi";
+
+    @Inject
+    public ReadinessProbeActionMosApi(HttpServletResponse rsp) {
+      super(rsp);
+    }
+  }
+
+  @Action(
       service = GaeService.DEFAULT,
       gkeService = GkeService.FRONTEND,
       path = ReadinessProbeActionFrontend.PATH,

@@ -100,6 +100,7 @@ import google.registry.tmch.TmchCrlAction;
 import google.registry.tmch.TmchDnlAction;
 import google.registry.tmch.TmchModule;
 import google.registry.tmch.TmchSmdrlAction;
+import google.registry.reporting.mosapi.MosApiCheckAction;
 import google.registry.tools.server.CreateGroupsAction;
 import google.registry.tools.server.GenerateZoneFilesAction;
 import google.registry.tools.server.ListDomainsAction;
@@ -247,6 +248,8 @@ interface RequestComponent {
 
   LoadTestAction loadTestAction();
 
+  MosApiCheckAction mosApiCheckAction();
+
   NordnUploadAction nordnUploadAction();
 
   NordnVerifyAction nordnVerifyAction();
@@ -262,6 +265,8 @@ interface RequestComponent {
   PublishSpec11ReportAction publishSpec11ReportAction();
 
   ReadinessProbeConsoleAction readinessProbeConsoleAction();
+
+  ReadinessProbeActionMosApi readinessProbeActionMosApi();
 
   ReadinessProbeActionPubApi readinessProbeActionPubApi();
 

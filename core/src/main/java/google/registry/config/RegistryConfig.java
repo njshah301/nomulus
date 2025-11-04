@@ -1493,6 +1493,15 @@ public final class RegistryConfig {
     return makeUrl(CONFIG_SETTINGS.get().gcpProject.pubapiServiceUrl);
   }
 
+  /**
+   * Returns the address of the Nomulus app mosapi HTTP server.
+   *
+   * <p>This is used by the {@code nomulus} tool to connect to the App Engine remote API.
+   */
+  public static URL getMosapiServer() {
+    return makeUrl(CONFIG_SETTINGS.get().gcpProject.mosapiServiceUrl);
+  }
+
   /** Returns the amount of time a singleton should be cached, before expiring. */
   public static java.time.Duration getSingletonCacheRefreshDuration() {
     return java.time.Duration.ofSeconds(CONFIG_SETTINGS.get().caching.singletonCacheRefreshSeconds);
