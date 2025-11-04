@@ -203,7 +203,7 @@ steps:
       base_domain=$(grep baseDomain \
         ./core/src/main/java/google/registry/config/files/nomulus-config-${env}.yaml | \
         awk '{print $2}')
-      for service in frontend backend pubapi console
+      for service in frontend backend pubapi console mosapi
       do
         # non-canary
         sed s/GCP_PROJECT/${PROJECT_ID}/g ./jetty/kubernetes/nomulus-${service}.yaml | \
