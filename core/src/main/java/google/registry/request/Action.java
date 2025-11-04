@@ -49,7 +49,8 @@ public @interface Action {
     DEFAULT("default"),
     TOOLS("tools"),
     BACKEND("backend"),
-    PUBAPI("pubapi");
+    PUBAPI("pubapi"),
+    MOSAPI("mosapi");
 
     private final String serviceId;
 
@@ -70,6 +71,7 @@ public @interface Action {
         case BACKEND -> RegistryConfig.getBackendServer();
         case BSA -> RegistryConfig.getBsaServer();
         case PUBAPI -> RegistryConfig.getPubapiServer();
+        case MOSAPI -> RegistryConfig.getMosapiServer();
       };
     }
   }
@@ -81,8 +83,8 @@ public @interface Action {
     FRONTEND("frontend"),
     BACKEND("backend"),
     PUBAPI("pubapi"),
-    CONSOLE("console");
-
+    CONSOLE("console"),
+    MOSAPI("mosapi");
     private final String serviceId;
 
     GkeService(String serviceId) {
@@ -142,6 +144,7 @@ public @interface Action {
         case TOOLS -> GkeService.BACKEND;
         case BSA -> GkeService.BACKEND;
         case PUBAPI -> GkeService.PUBAPI;
+        case MOSAPI -> GkeService.MOSAPI;
       };
     }
   }

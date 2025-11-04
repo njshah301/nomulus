@@ -78,7 +78,7 @@ steps:
     gcloud app versions list \
       --project $project_id --hide-no-traffic \
       --format="csv[no-heading](SERVICE,VERSION.ID)" | \
-      grep -e "^backend\|^default\|^bsa\|^pubapi\|^tools" |\
+      grep -e "^backend\|^default\|^bsa\|^pubapi\|^mosapi\|^tools" |\
       while read line; do echo "${TAG_NAME},$line"; done | tee "$local_map"
     num_versions=$(cat "$local_map" | wc -l)
     if [ "$num_versions" -ne 5 ]; then

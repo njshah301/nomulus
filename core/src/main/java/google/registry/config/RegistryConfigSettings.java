@@ -55,6 +55,8 @@ public class RegistryConfigSettings {
     public String bsaServiceUrl;
     public String toolsServiceUrl;
     public String pubapiServiceUrl;
+    public String mosapiServiceUrl;
+
     public String baseDomain;
   }
 
