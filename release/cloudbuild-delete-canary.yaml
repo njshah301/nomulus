@@ -36,7 +36,7 @@ steps:
 
     gcloud auth activate-service-account --key-file=tool-credential.json
 
-    for service in default pubapi backend bsa tools console
+    for service in default pubapi backend bsa tools console mosapi
     do
       gcloud app versions delete nomulus --service=$service \
         --project=$project_id --quiet;

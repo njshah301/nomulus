@@ -249,7 +249,8 @@ def services = [':services:default',
                 ':services:backend',
                 ':services:bsa',
                 ':services:tools',
-                ':services:pubapi']
+                ':services:pubapi',
+                ':services:mosapi']
 
 subprojects {
   // Skip no-op project
@@ -329,10 +330,12 @@ subprojects {
     }
   }
 
+  if (services.contains(project.path)) {
+    apply from: "${rootDir.path}/appengine_war.gradle"
+  }
+
   // Set up all of the deployment projects.
   if (services.contains(project.path)) {
-
-    apply from: "${rootDir.path}/appengine_war.gradle"
 
     // Return early, do not apply the settings below.
     return
@@ -380,16 +383,16 @@ subprojects {
   }
 }
 
-// Force SDK download and deployment to be sequential, otherwise parallel tasks
-// will fail. For SDK download, they will try to write to the same location to
-// upgrade gcloud. For deployment, they will try to deploy different services to
-// the same project at the same time.
-for (int i = 1; i < services.size(); i++) {
-  project("${services[i]}").downloadCloudSdk
-          .dependsOn(project("${services[i - 1]}").downloadCloudSdk)
-  project("${services[i]}").appengineDeployAll
-          .dependsOn(project("${services[i - 1]}").appengineDeployAll)
-}
+//// Force SDK download and deployment to be sequential, otherwise parallel tasks
+//// will fail. For SDK download, they will try to write to the same location to
+//// upgrade gcloud. For deployment, they will try to deploy different services to
+//// the same project at the same time.
+//for (int i = 1; i < services.size(); i++) {
+//  project("${services[i]}").downloadCloudSdk
+//          .dependsOn(project("${services[i - 1]}").downloadCloudSdk)
+//  project("${services[i]}").appengineDeployAll
+//          .dependsOn(project("${services[i - 1]}").appengineDeployAll)
+//}
 
 // If "-P verboseTestOutput=true" is passed in, configure all subprojects to dump all of their
 // output and final test status (pass/fail, errors) for each test class.
