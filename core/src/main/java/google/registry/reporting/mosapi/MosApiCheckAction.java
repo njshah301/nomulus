@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package google.registry.reporting.mosapi;
 
 import static jakarta.servlet.http.HttpServletResponse.SC_OK;
@@ -20,21 +19,19 @@ import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import com.google.common.net.MediaType;
 import google.registry.request.Action;
 import google.registry.request.Action.GaeService;
+import google.registry.request.Action.GkeService;
 import google.registry.request.Response;
 import google.registry.request.auth.Auth;
 import jakarta.inject.Inject;
 
-/**
- * A simple check action for the MoSAPI module.
- *
- */
+/** A simple check action for the MoSAPI module. */
 @Action(
     service = GaeService.MOSAPI,
     gkeService = GkeService.MOSAPI,
     path = "/mosapi/check", // This is the path mapping
     method = Action.Method.GET,
     auth = Auth.AUTH_PUBLIC) // Requires admin login, per web.xml
-public class MosApiCheckAction implements Runnable{
+public class MosApiCheckAction implements Runnable {
   @Inject Response response;
 
   @Inject

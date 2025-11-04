@@ -88,6 +88,7 @@ import google.registry.reporting.icann.DnsCountQueryCoordinator.DnsCountQueryCoo
 import google.registry.reporting.icann.IcannReportingModule;
 import google.registry.reporting.icann.IcannReportingStagingAction;
 import google.registry.reporting.icann.IcannReportingUploadAction;
+import google.registry.reporting.mosapi.MosApiCheckAction;
 import google.registry.reporting.spec11.GenerateSpec11ReportAction;
 import google.registry.reporting.spec11.PublishSpec11ReportAction;
 import google.registry.reporting.spec11.Spec11Module;
@@ -100,7 +101,6 @@ import google.registry.tmch.TmchCrlAction;
 import google.registry.tmch.TmchDnlAction;
 import google.registry.tmch.TmchModule;
 import google.registry.tmch.TmchSmdrlAction;
-import google.registry.reporting.mosapi.MosApiCheckAction;
 import google.registry.tools.server.CreateGroupsAction;
 import google.registry.tools.server.GenerateZoneFilesAction;
 import google.registry.tools.server.ListDomainsAction;

@@ -87,3 +87,5 @@ CONSOLE  /console-api/settings/security                     SecurityAction      
 CONSOLE  /console-api/userdata                              ConsoleUserDataAction                          GET                 n  USER PUBLIC
 CONSOLE  /console-api/users                                 ConsoleUsersAction                             GET,POST,DELETE,PUT n  USER PUBLIC
 CONSOLE  /ready/console                                     ReadinessProbeConsoleAction                    GET                 n  NONE PUBLIC
+MOSAPI   /ready/mosapi                                      ReadinessProbeActionMosApi                     GET                 n  NONE PUBLIC
+MOSAPI   /mosapi/check                                      MosApiCheckAction                              GET                 n  NONE PUBLIC
