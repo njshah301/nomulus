@@ -33,7 +33,7 @@ line=$(gcloud container clusters list --project "${project}" | grep nomulus | gr
 parts=(${line})
 echo "Updating cluster ${parts[0]} in location ${parts[1]}..."
 gcloud container fleet memberships get-credentials "${parts[0]}" --project "${project}"
-for service in frontend backend pubapi console
+for service in frontend backend pubapi console mosapi
 do
   sed s/GCP_PROJECT/"${project}"/g "./kubernetes/nomulus-${service}.yaml" | \
   sed s/ENVIRONMENT/"${environment}"/g | \
@@ -55,7 +55,7 @@ do
 done
 kubectl apply -f "./kubernetes/gateway/nomulus-gateway.yaml"
 kubectl apply -f "./kubernetes/gateway/nomulus-iap-${environment}.yaml"
-for service in frontend backend console pubapi
+for service in frontend backend console pubapi mosapi
 do
   sed s/BASE_DOMAIN/"${base_domain}"/g "./kubernetes/gateway/nomulus-route-${service}.yaml" | \
   kubectl apply -f -

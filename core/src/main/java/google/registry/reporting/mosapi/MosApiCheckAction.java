@@ -32,7 +32,7 @@ import jakarta.inject.Inject;
     service = GaeService.MOSAPI,
     path = "/mosapi/check", // This is the path mapping
     method = Action.Method.GET,
-    auth = Auth.AUTH_ADMIN) // Requires admin login, per web.xml
+    auth = Auth.AUTH_PUBLIC) // Requires admin login, per web.xml
 public class MosApiCheckAction implements Runnable{
   @Inject Response response;
 
