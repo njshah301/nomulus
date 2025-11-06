@@ -1,106 +1,72 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: mosapi
-  annotations:
-    tag: "latest"
-spec:
-  # This is the key change to ensure only one pod ever runs.
-  # This is required because the service currently uses an in-memory
-  # cache for state (e.g., cookies) and cannot be load balanced.
-  replicas: 1
-  selector:
-    matchLabels:
-      service: mosapi
-  template:
-    metadata:
-      labels:
-        service: mosapi
-    spec:
-      serviceAccountName: nomulus
-      containers:
-      - name: mosapi
-        image: gcr.io/GCP_PROJECT/nomulus
-        ports:
-        - containerPort: 8080
-          name: http
-        startupProbe:
-          httpGet:
-            port: 8080
-            # This path must match the module name
-            path: /ready/mosapi
-          initialDelaySeconds: 1
-          timeoutSeconds: 60
-          successThreshold: 1
-          failureThreshold: 3
-          periodSeconds: 30
-        resources:
-          requests:
-            cloud.google.com/pod-slots: 0
-            cpu: "500m"
-            memory: "1Gi"
-          limits:
-            cloud.google.com/pod-slots: 0
-            cpu: "1000m"
-            memory: "2Gi"
-        args: [ENVIRONMENT]
-        env:
-        - name: POD_ID
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: JETTY_WORKER_INSTANCE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: NAMESPACE_ID
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: CONTAINER_NAME
-          value: mosapi
----
-#
-# NOTE: The HorizontalPodAutoscaler is commented out because this service
-# must run as a single instance due to its reliance on an in-memory
-# cache for state.
-#
-# If a distributed cache (e.g., Redis) is implemented in the future,
-# you can uncomment this section to enable load balancing and high availability.
-#
-# ---
-# apiVersion: autoscaling/v2
-# kind: HorizontalPodAutoscaler
-# metadata:
-#   name: mosapi
-# spec:
-#   scaleTargetRef:
-#     apiVersion: apps/v1
-#     kind: Deployment
-#     name: mosapi
-#   minReplicas: 2
-#   maxReplicas: 5
-#   metrics:
-#   - type: Resource
-#     resource:
-#       name: cpu
-#       target:
-#         type: Utilization
-#         averageUtilization: 80
----
-apiVersion: v1
-kind: Service
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
 metadata:
   name: mosapi
 spec:
-  selector:
-    service: mosapi
-  ports:
-  - port: 80
-    targetPort: http
-    name: http
+  parentRefs:
+  - kind: Gateway
+    name: nomulus
+    sectionName: https
+  hostnames:
+    - "mosapi.BASE_DOMAIN"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /check
+    - path:
+        type: PathPrefix
+        value: /rdap
+    backendRefs:
+    - group: net.gke.io
+      kind: ServiceImport
+      name: mosapi
+      port: 80
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /check
+      headers:
+      - name: "canary"
+        value: "true"
+    - path:
+        type: PathPrefix
+        value: /rdap
+      headers:
+      - name: "canary"
+        value: "true"
+    backendRefs:
+    - group: net.gke.io
+      kind: ServiceImport
+      name: mosapi-canary
+      port: 80
 ---
-apiVersion: net.gke.io/v1
-kind: ServiceExport
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
 metadata:
   name: mosapi
+spec:
+  default:
+    config:
+      type: HTTP
+      httpHealthCheck:
+        requestPath: /healthz/
+  targetRef:
+    group: net.gke.io
+    kind: ServiceImport
+    name: mosapi
+---
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: mosapi-canary
+spec:
+  default:
+    config:
+      type: HTTP
+      httpHealthCheck:
+        requestPath: /healthz/
+  targetRef:
+    group: net.gke.io
+    kind: ServiceImport
+    name: mosapi-canary

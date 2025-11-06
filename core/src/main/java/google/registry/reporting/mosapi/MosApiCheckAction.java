@@ -15,7 +15,7 @@
 
 package google.registry.reporting.mosapi;
 
-import static javax.security.auth.callback.ConfirmationCallback.OK;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 
 import com.google.common.net.MediaType;
 import google.registry.request.Action;
@@ -30,6 +30,7 @@ import jakarta.inject.Inject;
  */
 @Action(
     service = GaeService.MOSAPI,
+    gkeService = GkeService.MOSAPI,
     path = "/mosapi/check", // This is the path mapping
     method = Action.Method.GET,
     auth = Auth.AUTH_PUBLIC) // Requires admin login, per web.xml
@@ -41,7 +42,7 @@ public class MosApiCheckAction implements Runnable{
 
   @Override
   public void run() {
-    response.setStatus(OK);
+    response.setStatus(SC_OK);
     response.setContentType(MediaType.PLAIN_TEXT_UTF_8);
     response.setPayload("Hello from Registry Mosapi test check");
   }
