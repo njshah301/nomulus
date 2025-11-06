@@ -58,6 +58,7 @@ import google.registry.flows.custom.CustomLogicModule;
 import google.registry.loadtest.LoadTestAction;
 import google.registry.loadtest.LoadTestModule;
 import google.registry.module.ReadinessProbeAction.ReadinessProbeActionFrontend;
+import google.registry.module.ReadinessProbeAction.ReadinessProbeActionMosApi;
 import google.registry.module.ReadinessProbeAction.ReadinessProbeActionPubApi;
 import google.registry.module.ReadinessProbeAction.ReadinessProbeConsoleAction;
 import google.registry.monitoring.whitebox.WhiteboxModule;
