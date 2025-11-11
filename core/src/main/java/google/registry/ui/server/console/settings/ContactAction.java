@@ -40,7 +40,6 @@ import google.registry.request.Action.GaeService;
 import google.registry.request.Action.GkeService;
 import google.registry.request.Parameter;
 import google.registry.request.auth.Auth;
-import google.registry.ui.forms.FormException;
 import google.registry.ui.server.console.ConsoleApiAction;
 import google.registry.ui.server.console.ConsoleApiParams;
 import jakarta.inject.Inject;
@@ -106,9 +105,9 @@ public class ContactAction extends ConsoleApiAction {
                   new RegistrarPoc()
                       .asBuilder()
                       .setTypes(newContact.getTypes())
-                      .setVisibleInWhoisAsTech(newContact.getVisibleInWhoisAsTech())
-                      .setVisibleInWhoisAsAdmin(newContact.getVisibleInWhoisAsAdmin())
-                      .setVisibleInDomainWhoisAsAbuse(newContact.getVisibleInDomainWhoisAsAbuse())
+                      .setVisibleInRdapAsTech(newContact.getVisibleInRdapAsTech())
+                      .setVisibleInRdapAsAdmin(newContact.getVisibleInRdapAsAdmin())
+                      .setVisibleInDomainRdapAsAbuse(newContact.getVisibleInDomainRdapAsAbuse())
                       .setFaxNumber(newContact.getFaxNumber())
                       .setName(newContact.getName())
                       .setEmailAddress(newContact.getEmailAddress())
@@ -133,10 +132,10 @@ public class ContactAction extends ConsoleApiAction {
                           ? oldContact
                               .asBuilder()
                               .setTypes(updatedContact.getTypes())
-                              .setVisibleInWhoisAsTech(updatedContact.getVisibleInWhoisAsTech())
-                              .setVisibleInWhoisAsAdmin(updatedContact.getVisibleInWhoisAsAdmin())
-                              .setVisibleInDomainWhoisAsAbuse(
-                                  updatedContact.getVisibleInDomainWhoisAsAbuse())
+                              .setVisibleInRdapAsTech(updatedContact.getVisibleInRdapAsTech())
+                              .setVisibleInRdapAsAdmin(updatedContact.getVisibleInRdapAsAdmin())
+                              .setVisibleInDomainRdapAsAbuse(
+                                  updatedContact.getVisibleInDomainRdapAsAbuse())
                               .setFaxNumber(updatedContact.getFaxNumber())
                               .setName(updatedContact.getName())
                               .setEmailAddress(updatedContact.getEmailAddress())
@@ -166,7 +165,7 @@ public class ContactAction extends ConsoleApiAction {
 
     try {
       checkContactRequirements(oldContacts, newContacts);
-    } catch (FormException e) {
+    } catch (ContactRequirementException e) {
       logger.atWarning().withCause(e).log(
           "Error processing contacts post request for registrar: %s", registrarId);
       throw new IllegalArgumentException(e);
@@ -196,7 +195,7 @@ public class ContactAction extends ConsoleApiAction {
   /**
    * Enforces business logic checks on registrar contacts.
    *
-   * @throws FormException if the checks fail.
+   * @throws ContactRequirementException if the checks fail.
    */
   private static void checkContactRequirements(
       ImmutableSet<RegistrarPoc> existingContacts, ImmutableSet<RegistrarPoc> updatedContacts) {
@@ -231,19 +230,19 @@ public class ContactAction extends ConsoleApiAction {
 
     enforcePrimaryContactRestrictions(oldContactsByType, newContactsByType);
     ensurePhoneNumberNotRemovedForContactTypes(oldContactsByType, newContactsByType, Type.TECH);
-    Optional<RegistrarPoc> domainWhoisAbuseContact =
-        getDomainWhoisVisibleAbuseContact(updatedContacts);
-    // If the new set has a domain WHOIS abuse contact, it must have a phone number.
-    if (domainWhoisAbuseContact.isPresent()
-        && domainWhoisAbuseContact.get().getPhoneNumber() == null) {
+    Optional<RegistrarPoc> domainRdapAbuseContact =
+        getDomainRdapVisibleAbuseContact(updatedContacts);
+    // If the new set has a domain RDAP abuse contact, it must have a phone number.
+    if (domainRdapAbuseContact.isPresent()
+        && domainRdapAbuseContact.get().getPhoneNumber() == null) {
       throw new ContactRequirementException(
-          "The abuse contact visible in domain WHOIS query must have a phone number");
+          "The abuse contact visible in domain RDAP query must have a phone number");
     }
-    // If there was a domain WHOIS abuse contact in the old set, the new set must have one.
-    if (getDomainWhoisVisibleAbuseContact(existingContacts).isPresent()
-        && domainWhoisAbuseContact.isEmpty()) {
+    // If there was a domain RDAP abuse contact in the old set, the new set must have one.
+    if (getDomainRdapVisibleAbuseContact(existingContacts).isPresent()
+        && domainRdapAbuseContact.isEmpty()) {
       throw new ContactRequirementException(
-          "An abuse contact visible in domain WHOIS query must be designated");
+          "An abuse contact visible in domain RDAP query must be designated");
     }
   }
 
@@ -265,17 +264,17 @@ public class ContactAction extends ConsoleApiAction {
   }
 
   /**
-   * Retrieves the registrar contact whose phone number and email address is visible in domain WHOIS
+   * Retrieves the registrar contact whose phone number and email address is visible in domain RDAP
    * query as abuse contact (if any).
    *
-   * <p>Frontend processing ensures that only one contact can be set as abuse contact in domain
-   * WHOIS record.
+   * <p>Frontend processing ensures that only one contact can be set as abuse contact in domain RDAP
+   * record.
    *
    * <p>Therefore, it is possible to return inside the loop once one such contact is found.
    */
-  private static Optional<RegistrarPoc> getDomainWhoisVisibleAbuseContact(
+  private static Optional<RegistrarPoc> getDomainRdapVisibleAbuseContact(
       Set<RegistrarPoc> contacts) {
-    return contacts.stream().filter(RegistrarPoc::getVisibleInDomainWhoisAsAbuse).findFirst();
+    return contacts.stream().filter(RegistrarPoc::getVisibleInDomainRdapAsAbuse).findFirst();
   }
 
   /**
@@ -299,7 +298,7 @@ public class ContactAction extends ConsoleApiAction {
   }
 
   /** Thrown when a set of contacts doesn't meet certain constraints. */
-  private static class ContactRequirementException extends FormException {
+  private static class ContactRequirementException extends RuntimeException {
     ContactRequirementException(String msg) {
       super(msg);
     }
