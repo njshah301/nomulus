@@ -135,6 +135,8 @@ interface RegistryToolComponent {
 
   void inject(PendingEscrowCommand command);
 
+  void inject(RdapQueryCommand command);
+
   void inject(RenewDomainCommand command);
 
   void inject(SaveSqlCredentialCommand command);
@@ -179,9 +181,6 @@ interface RegistryToolComponent {
 
     @BindsInstance
     Builder sqlAccessInfoFile(@Nullable @Config("sqlAccessInfoFile") String sqlAccessInfoFile);
-
-    @BindsInstance
-    Builder useGke(@Config("useGke") boolean useGke);
 
     @BindsInstance
     Builder useCanary(@Config("useCanary") boolean useCanary);
