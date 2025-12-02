@@ -14,6 +14,8 @@
 
 package google.registry.mosapi.services;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.FluentLogger;
 import google.registry.config.RegistryConfig.Config;
@@ -24,8 +26,12 @@ import google.registry.mosapi.dto.servicemonitoring.ServiceStateSummary;
 import google.registry.mosapi.dto.servicemonitoring.ServiceStatus;
 import google.registry.mosapi.dto.servicemonitoring.TldServiceState;
 import google.registry.mosapi.exception.MosApiException;
+import google.registry.mosapi.metrics.MosApiMetrics;
 import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
 /** A service that provides business logic for interacting with MoSAPI Service State. */
@@ -35,33 +41,55 @@ public class MosApiStateService {
   private final List<String> tlds;
 
   private final String downStatus = "Down";
+  private final ExecutorService tldExecutor;
+  private final MosApiMetrics mosApiMetrics;
 
   @Inject
   public MosApiStateService(
-      ServiceMonitoringClient serviceMonitoringClient, @Config("mosapiTlds") List<String> tlds) {
+      ServiceMonitoringClient serviceMonitoringClient,
+      MosApiMetrics mosApiMetrics,
+      @Config("mosapiTlds") List<String> tlds,
+      @Named("mosapiTldExecutor") ExecutorService tldExecutor) {
     this.serviceMonitoringClient = serviceMonitoringClient;
+    this.mosApiMetrics = mosApiMetrics;
     this.tlds = tlds;
+    this.tldExecutor = tldExecutor;
   }
 
   /** Fetches and transforms the service state for a given TLD into a summary. */
   public ServiceStateSummary getServiceStateSummary(String tld) throws MosApiException {
     TldServiceState rawState = serviceMonitoringClient.getServiceState(tld);
+    // Record metrics asynchronously ("Fire-and-Forget")
+    // This call returns immediately because MosApiMetrics submits the work to its own executor.
+    mosApiMetrics.recordState(rawState);
     return transformToSummary(rawState);
   }
 
   /** Fetches and transforms the service state for all configured TLDs. */
   public AllServicesStateResponse getAllServiceStateSummaries() {
-    ImmutableList.Builder<ServiceStateSummary> summaries = new ImmutableList.Builder<>();
-    for (String tld : tlds) {
-      try {
-        summaries.add(getServiceStateSummary(tld));
-      } catch (MosApiException e) {
-        logger.atWarning().withCause(e).log("Failed to get service state for TLD %s.", tld);
-        // Add a summary indicating the error for this TLD
-        summaries.add(new ServiceStateSummary(tld, "ERROR", null));
-      }
-    }
-    return new AllServicesStateResponse(summaries.build());
+    List<CompletableFuture<ServiceStateSummary>> futures =
+        tlds.stream()
+            .map(
+                tld ->
+                    CompletableFuture.supplyAsync(
+                        () -> {
+                          try {
+                            return getServiceStateSummary(tld);
+                          } catch (MosApiException e) {
+                            logger.atWarning().withCause(e).log(
+                                "Failed to get service state for TLD %s.", tld);
+                            return new ServiceStateSummary(tld, "ERROR", null);
+                          }
+                        },
+                        tldExecutor))
+            .collect(Collectors.toList());
+
+    ImmutableList<ServiceStateSummary> summaries =
+        futures.stream()
+            .map(CompletableFuture::join) // Waits for all tasks to complete
+            .collect(toImmutableList());
+
+    return new AllServicesStateResponse(summaries);
   }
 
   private ServiceStateSummary transformToSummary(TldServiceState rawState) {

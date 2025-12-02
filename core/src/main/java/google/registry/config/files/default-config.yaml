@@ -633,6 +633,8 @@ mosapi:
   # URL for the MosAPI
   mosapiUrl: https://mosapi.icann.org
   entityType: ry
+  tldThreadCnt: 4
+  metricsThreadCnt: 1
   # List of TLDs to be monitored.
   tlds:
   - "test"

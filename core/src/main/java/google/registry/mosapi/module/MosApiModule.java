@@ -16,10 +16,14 @@ package google.registry.mosapi.module;
 
 import dagger.Module;
 import dagger.Provides;
+import google.registry.config.RegistryConfig.Config;
 import google.registry.privileges.secretmanager.SecretManagerClient;
 import jakarta.inject.Named;
 import jakarta.inject.Provider;
+import jakarta.inject.Singleton;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Module
 public final class MosApiModule {
@@ -53,5 +57,35 @@ public final class MosApiModule {
   public static String provideMosapiTlsKey(SecretManagerClient secretManagerClient) {
     return secretManagerClient.getSecretData(
         "nomulus-dot-foo_tls-client-dot-key", Optional.of("latest"));
+  }
+
+  /**
+   * Provides a fixed thread pool for parallel TLD processing.
+   *
+   * <p>Strictly bound to 4 threads to comply with MoSAPI session limits (4 concurrent sessions per
+   * certificate). This is used by MosApiStateService to fetch data in parallel.
+   *
+   * @see <a href="go/mosapi-design">Design Doc Section 2.1.2</a>
+   */
+  @Provides
+  @Singleton
+  @Named("mosapiTldExecutor")
+  static ExecutorService provideMosapiTldExecutor(
+      @Config("mosapiTldThreadCnt") int threadPoolSize) {
+    return Executors.newFixedThreadPool(threadPoolSize);
+  }
+
+  /**
+   * Provides a thread pool for asynchronous metrics exportation.
+   *
+   * <p>This supports the "Fire-and-Forget" pattern. We use a fixed pool of size 4 to match the TLD
+   * processing concurrency, ensuring that metric exporting does not bottleneck the system.
+   */
+  @Provides
+  @Singleton
+  @Named("mosapiMetricsExecutor")
+  static ExecutorService provideMosapiMetricsExecutor(
+      @Config("mosapiMetricsThreadCnt") int threadPoolSize) {
+    return Executors.newFixedThreadPool(threadPoolSize);
   }
 }

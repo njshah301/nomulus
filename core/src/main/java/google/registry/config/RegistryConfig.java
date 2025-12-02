@@ -514,7 +514,7 @@ public final class RegistryConfig {
     }
 
     /**
-     * The email address that outgoing emails from the app are sent from.
+     * /** The email address that outgoing emails from the app are sent from.
      *
      * @see google.registry.ui.server.SendEmailUtils
      */
@@ -1449,6 +1449,18 @@ public final class RegistryConfig {
     @Config("mosapiServices")
     public static List<String> provideMosapiServices(RegistryConfigSettings config) {
       return ImmutableList.copyOf(config.mosapi.services);
+    }
+
+    @Provides
+    @Config("mosapiTldThreadCnt")
+    public static Integer provideMosapiTldThreads(RegistryConfigSettings config) {
+      return config.mosapi.tldThreadCnt;
+    }
+
+    @Provides
+    @Config("mosapiMetricsThreadCnt")
+    public static Integer provideMosapiMetricssThreads(RegistryConfigSettings config) {
+      return config.mosapi.metricsThreadCnt;
     }
 
     private static String formatComments(String text) {
