@@ -14,11 +14,14 @@
 package google.registry.mosapi.module;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import google.registry.privileges.secretmanager.SecretManagerClient;
+import java.net.http.HttpClient;
 import java.util.Optional;
+import javax.net.ssl.SSLContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -27,33 +30,50 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /** Unit tests for {@link MosApiModule}. */
 @ExtendWith(MockitoExtension.class)
 public class MosApiModuleTest {
+
   @Mock private SecretManagerClient secretManagerClient;
+  @Mock private SSLContext mockSslContext;
 
   @Test
-  void provideMosapiTlsCert_returnsSecretValue() {
+  void testProvideMosapiTlsCert_returnsSecret() {
     String secretName = "nomulus-dot-foo_tls-client-dot-crt-dot-pem";
-    String secretValue = "-----BEGIN CERTIFICATE-----...";
-
-    when(secretManagerClient.getSecretData(secretName, Optional.of("latest")))
-        .thenReturn(secretValue);
-
+    String fakeCert = "FAKE_CERT";
+    when(secretManagerClient.getSecretData(secretName, Optional.of("latest"))).thenReturn(fakeCert);
     String result = MosApiModule.provideMosapiTlsCert(secretManagerClient);
-
-    assertThat(result).isEqualTo(secretValue);
+    assertThat(result).isEqualTo(fakeCert);
     verify(secretManagerClient).getSecretData(secretName, Optional.of("latest"));
   }
 
   @Test
-  void provideMosapiTlsKey_returnsSecretValue() {
+  void testProvideMosapiTlsKey_returnsSecret() {
     String secretName = "nomulus-dot-foo_tls-client-dot-key";
-    String secretValue = "-----BEGIN PRIVATE KEY-----...";
-
-    when(secretManagerClient.getSecretData(secretName, Optional.of("latest")))
-        .thenReturn(secretValue);
-
+    String fakeKey = "FAKE_KEY";
+    when(secretManagerClient.getSecretData(secretName, Optional.of("latest"))).thenReturn(fakeKey);
     String result = MosApiModule.provideMosapiTlsKey(secretManagerClient);
-
-    assertThat(result).isEqualTo(secretValue);
+    assertThat(result).isEqualTo(fakeKey);
     verify(secretManagerClient).getSecretData(secretName, Optional.of("latest"));
+  }
+
+  @Test
+  void testProvidePrivateKey_throwsOnBadKey() {
+    RuntimeException thrown =
+        assertThrows(
+            RuntimeException.class, () -> MosApiModule.providePrivateKey("not a real key"));
+    assertThat(thrown).hasMessageThat().contains("Could not parse TLS private key");
+  }
+
+  @Test
+  void testProvideCertificate_throwsOnBadCert() {
+    RuntimeException thrown =
+        assertThrows(
+            RuntimeException.class, () -> MosApiModule.provideCertificate("not a real cert"));
+    assertThat(thrown).hasMessageThat().contains("Could not create X.509 certificate");
+  }
+
+  @Test
+  void testProvideMosapiHttpClient_usesSslContext() {
+    HttpClient client = MosApiModule.provideMosapiHttpClient(mockSslContext);
+    assertThat(client).isNotNull();
+    assertThat(client.sslContext()).isEqualTo(mockSslContext);
   }
 }

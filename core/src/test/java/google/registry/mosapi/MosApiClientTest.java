@@ -11,13 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package google.registry.mosapi.client;
+package google.registry.mosapi;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -27,10 +26,9 @@ import google.registry.mosapi.exception.MosApiException;
 import google.registry.mosapi.exception.MosApiException.MosApiAuthorizationException;
 import google.registry.util.HttpUtils;
 import java.net.HttpURLConnection;
-import java.net.URLEncoder;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,6 +41,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /** Unit tests for {@link MosApiClient}. */
 @ExtendWith(MockitoExtension.class)
 public class MosApiClientTest {
+
   private static final String MOSAPI_URL = "https://mosapi.example.com";
   private static final String ENTITY_TYPE = "tld";
   private static final String BASE_URL = MOSAPI_URL + "/" + ENTITY_TYPE;
@@ -70,13 +69,13 @@ public class MosApiClientTest {
     String endpoint = "v2/check";
     Map<String, String> params = ImmutableMap.of();
     Map<String, String> headers = ImmutableMap.of("Authorization", "Bearer token");
-    String expectedUrl = BASE_URL + "/" + ENTITY_ID + "/" + endpoint;
+    URI expectedUri = URI.create(BASE_URL + "/" + ENTITY_ID + "/" + endpoint);
 
     when(httpResponse.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
     when(httpResponse.body()).thenReturn("Success");
 
     httpUtilsMock
-        .when(() -> HttpUtils.sendGetRequest(eq(httpClient), eq(expectedUrl), eq(headers)))
+        .when(() -> HttpUtils.sendGetRequest(eq(httpClient), eq(expectedUri), eq(headers)))
         .thenReturn(httpResponse);
 
     HttpResponse<String> result = client.sendGetRequest(ENTITY_ID, endpoint, params, headers);
@@ -91,17 +90,16 @@ public class MosApiClientTest {
     Map<String, String> params = ImmutableMap.of("q", "foo bar", "limit", "10");
     Map<String, String> headers = ImmutableMap.of();
 
-    String encodedQ = URLEncoder.encode("foo bar", StandardCharsets.UTF_8);
-
     when(httpResponse.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
     httpUtilsMock
-        .when(() -> HttpUtils.sendGetRequest(eq(httpClient), anyString(), eq(headers)))
+        .when(() -> HttpUtils.sendGetRequest(eq(httpClient), any(URI.class), eq(headers)))
         .thenAnswer(
             invocation -> {
-              String url = invocation.getArgument(1);
-              assertThat(url).startsWith(BASE_URL + "/" + ENTITY_ID + "/" + endpoint + "?");
-              assertThat(url).contains("q=" + encodedQ);
-              assertThat(url).contains("limit=10");
+              URI uri = invocation.getArgument(1);
+              assertThat(uri.getPath())
+                  .isEqualTo("/" + ENTITY_TYPE + "/" + ENTITY_ID + "/" + endpoint);
+              assertThat(uri.getQuery()).contains("q=foo+bar");
+              assertThat(uri.getQuery()).contains("limit=10");
               return httpResponse;
             });
 
@@ -112,7 +110,7 @@ public class MosApiClientTest {
   void sendGetRequest_unauthorized_throwsException() {
     when(httpResponse.statusCode()).thenReturn(HttpURLConnection.HTTP_UNAUTHORIZED);
     httpUtilsMock
-        .when(() -> HttpUtils.sendGetRequest(any(), anyString(), anyMap()))
+        .when(() -> HttpUtils.sendGetRequest(any(), any(URI.class), anyMap()))
         .thenReturn(httpResponse);
 
     MosApiAuthorizationException thrown =
@@ -127,7 +125,7 @@ public class MosApiClientTest {
   void sendGetRequest_runtimeException_wrapsInMosApiException() {
     RuntimeException networkError = new RuntimeException("Connection timeout");
     httpUtilsMock
-        .when(() -> HttpUtils.sendGetRequest(any(), anyString(), anyMap()))
+        .when(() -> HttpUtils.sendGetRequest(any(), any(URI.class), anyMap()))
         .thenThrow(networkError);
 
     MosApiException thrown =
@@ -140,64 +138,15 @@ public class MosApiClientTest {
   }
 
   @Test
-  void sendGetRequestWithDecompression_success() throws Exception {
-    String endpoint = "v2/heavy-data";
-    String expectedUrl = BASE_URL + "/" + ENTITY_ID + "/" + endpoint;
-
-    when(httpResponse.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
-    when(httpResponse.body()).thenReturn("Decompressed Content");
-
-    httpUtilsMock
-        .when(
-            () ->
-                HttpUtils.sendGetRequestWithDecompression(
-                    eq(httpClient), eq(expectedUrl), anyMap()))
-        .thenReturn(httpResponse);
-
-    HttpResponse<String> result =
-        client.sendGetRequestWithDecompression(ENTITY_ID, endpoint, null, ImmutableMap.of());
-
-    assertThat(result.body()).isEqualTo("Decompressed Content");
-  }
-
-  @Test
-  void sendGetRequestWithDecompression_unauthorized_throwsException() {
-    when(httpResponse.statusCode()).thenReturn(HttpURLConnection.HTTP_UNAUTHORIZED);
-    httpUtilsMock
-        .when(() -> HttpUtils.sendGetRequestWithDecompression(any(), anyString(), anyMap()))
-        .thenReturn(httpResponse);
-
-    assertThrows(
-        MosApiAuthorizationException.class,
-        () -> client.sendGetRequestWithDecompression(ENTITY_ID, "test", null, ImmutableMap.of()));
-  }
-
-  @Test
-  void sendGetRequestWithDecompression_runtimeException_wrapsException() {
-    httpUtilsMock
-        .when(() -> HttpUtils.sendGetRequestWithDecompression(any(), anyString(), anyMap()))
-        .thenThrow(new RuntimeException("Gzip error"));
-
-    MosApiException thrown =
-        assertThrows(
-            MosApiException.class,
-            () ->
-                client.sendGetRequestWithDecompression(ENTITY_ID, "test", null, ImmutableMap.of()));
-
-    assertThat(thrown).hasMessageThat().contains("Error during GET request");
-    assertThat(thrown).hasCauseThat().hasMessageThat().isEqualTo("Gzip error");
-  }
-
-  @Test
   void sendPostRequest_success() throws Exception {
     String endpoint = "v2/update";
     String body = "{\"key\":\"value\"}";
-    String expectedUrl = BASE_URL + "/" + ENTITY_ID + "/" + endpoint;
+    URI expectedUri = URI.create(BASE_URL + "/" + ENTITY_ID + "/" + endpoint);
 
     when(httpResponse.statusCode()).thenReturn(HttpURLConnection.HTTP_CREATED);
 
     httpUtilsMock
-        .when(() -> HttpUtils.sendPostRequest(eq(httpClient), eq(expectedUrl), anyMap(), eq(body)))
+        .when(() -> HttpUtils.sendPostRequest(eq(httpClient), eq(expectedUri), anyMap(), eq(body)))
         .thenReturn(httpResponse);
 
     HttpResponse<String> result =
@@ -210,7 +159,7 @@ public class MosApiClientTest {
   void sendPostRequest_unauthorized_throwsException() {
     when(httpResponse.statusCode()).thenReturn(HttpURLConnection.HTTP_UNAUTHORIZED);
     httpUtilsMock
-        .when(() -> HttpUtils.sendPostRequest(any(), anyString(), anyMap(), anyString()))
+        .when(() -> HttpUtils.sendPostRequest(any(), any(URI.class), anyMap(), any(String.class)))
         .thenReturn(httpResponse);
 
     assertThrows(
@@ -221,7 +170,7 @@ public class MosApiClientTest {
   @Test
   void sendPostRequest_runtimeException_wrapsException() {
     httpUtilsMock
-        .when(() -> HttpUtils.sendPostRequest(any(), anyString(), anyMap(), anyString()))
+        .when(() -> HttpUtils.sendPostRequest(any(), any(URI.class), anyMap(), any(String.class)))
         .thenThrow(new RuntimeException("Network error"));
 
     MosApiException thrown =
@@ -230,18 +179,5 @@ public class MosApiClientTest {
             () -> client.sendPostRequest(ENTITY_ID, "test", null, ImmutableMap.of(), "body"));
 
     assertThat(thrown).hasMessageThat().contains("Error during POST request");
-  }
-
-  @Test
-  void testBuildUrl_endpointStartingWithSlash() throws Exception {
-    String endpoint = "/v2/check";
-    String expectedUrl = BASE_URL + "/" + ENTITY_ID + endpoint;
-
-    when(httpResponse.statusCode()).thenReturn(200);
-    httpUtilsMock
-        .when(() -> HttpUtils.sendGetRequest(any(), eq(expectedUrl), anyMap()))
-        .thenReturn(httpResponse);
-
-    client.sendGetRequest(ENTITY_ID, endpoint, null, ImmutableMap.of());
   }
 }

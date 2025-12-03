@@ -619,11 +619,14 @@ bsa:
 
 mosapi:
   # URL for the MosAPI
-  mosapiUrl: https://mosapi.icann.org
+  serviceUrl: https://mosapi.icann.org
+  # The type of entity being monitored.
+  # For registries, this is 'ry'
+  # For registrars, this is 'rr'
   entityType: ry
-  # List of TLDs to be monitored.
+  # Add your List of TLDs to be monitored
   tlds:
-  - "test"
+
   # List of services to check for each TLD.
   services:
   - "dns"

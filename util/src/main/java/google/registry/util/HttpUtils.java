@@ -15,20 +15,11 @@
 package google.registry.util;
 
 import com.google.common.collect.ImmutableMap;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.net.http.HttpResponse.BodyHandler;
-import java.net.http.HttpResponse.BodySubscriber;
-import java.net.http.HttpResponse.BodySubscribers;
-import java.net.http.HttpResponse.ResponseInfo;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.zip.GZIPInputStream;
 
 public class HttpUtils {
   /** Private constructor to prevent instantiation. */
@@ -38,24 +29,24 @@ public class HttpUtils {
    * Sends an HTTP GET request to the specified URL without any custom headers.
    *
    * @param httpClient the {@link HttpClient} to use for sending the request
-   * @param url the target URL
+   * @param uri the target URI
    * @return the {@link HttpResponse} as a String
    */
-  public static HttpResponse<String> sendGetRequest(HttpClient httpClient, String url) {
-    return sendGetRequest(httpClient, url, ImmutableMap.of());
+  public static HttpResponse<String> sendGetRequest(HttpClient httpClient, URI uri) {
+    return sendGetRequest(httpClient, uri, ImmutableMap.of());
   }
 
   /**
    * Sends an HTTP GET request with custom headers to the specified URL.
    *
    * @param httpClient the {@link HttpClient} to use for sending the request
-   * @param url the target URL
+   * @param uri the target URI
    * @param headers a {@link Map} of header keys and values to add to the request
    * @return the {@link HttpResponse} as a String
    */
   public static HttpResponse<String> sendGetRequest(
-      HttpClient httpClient, String url, Map<String, String> headers) {
-    HttpRequest.Builder requestBuilder = HttpRequest.newBuilder().uri(URI.create(url)).GET();
+      HttpClient httpClient, URI uri, Map<String, String> headers) {
+    HttpRequest.Builder requestBuilder = HttpRequest.newBuilder().uri(uri).GET();
     for (Map.Entry<String, String> header : headers.entrySet()) {
       requestBuilder.header(header.getKey(), header.getValue());
     }
@@ -66,25 +57,25 @@ public class HttpUtils {
    * Sends an HTTP POST request with an empty body to the specified URL.
    *
    * @param httpClient the {@link HttpClient} to use for sending the request
-   * @param url the target URL
+   * @param uri the target URI
    * @return the {@link HttpResponse} as a String
    */
-  public static HttpResponse<String> sendPostRequest(HttpClient httpClient, String url) {
-    return sendPostRequest(httpClient, url, ImmutableMap.of());
+  public static HttpResponse<String> sendPostRequest(HttpClient httpClient, URI uri) {
+    return sendPostRequest(httpClient, uri, ImmutableMap.of());
   }
 
   /**
    * Sends an HTTP POST request with an empty body and custom headers to the specified URL.
    *
    * @param httpClient the {@link HttpClient} to use for sending the request
-   * @param url the target URL
+   * @param uri the target URL
    * @param headers a {@link Map} of header keys and values to add to the request
    * @return the {@link HttpResponse} as a String
    */
   public static HttpResponse<String> sendPostRequest(
-      HttpClient httpClient, String url, Map<String, String> headers) {
+      HttpClient httpClient, URI uri, Map<String, String> headers) {
     HttpRequest.Builder requestBuilder =
-        HttpRequest.newBuilder().uri(URI.create(url)).POST(HttpRequest.BodyPublishers.noBody());
+        HttpRequest.newBuilder().uri(uri).POST(HttpRequest.BodyPublishers.noBody());
     for (Map.Entry<String, String> header : headers.entrySet()) {
       requestBuilder.header(header.getKey(), header.getValue());
     }
@@ -95,14 +86,14 @@ public class HttpUtils {
    * Sends an HTTP POST request with a String body and custom headers to the specified URL.
    *
    * @param httpClient the {@link HttpClient} to use for sending the request
-   * @param url the target URL
+   * @param uri the target URI
    * @param headers a {@link Map} of header keys and values to add to the request
    * @param body the String request body to send (can be null or empty for no body)
    * @return the {@link HttpResponse} as a String
    */
   public static HttpResponse<String> sendPostRequest(
-      HttpClient httpClient, String url, Map<String, String> headers, String body) {
-    HttpRequest.Builder requestBuilder = HttpRequest.newBuilder().uri(URI.create(url));
+      HttpClient httpClient, URI uri, Map<String, String> headers, String body) {
+    HttpRequest.Builder requestBuilder = HttpRequest.newBuilder().uri(uri);
 
     if (body == null || body.isEmpty()) {
       requestBuilder.POST(HttpRequest.BodyPublishers.noBody());
@@ -114,44 +105,6 @@ public class HttpUtils {
       requestBuilder.header(header.getKey(), header.getValue());
     }
     return send(httpClient, requestBuilder.build());
-  }
-
-  public static HttpResponse<String> sendGetRequestWithDecompression(
-      HttpClient httpClient, String url, Map<String, String> headers) {
-    HttpRequest.Builder requestBuilder = HttpRequest.newBuilder().uri(URI.create(url)).GET();
-    for (Map.Entry<String, String> header : headers.entrySet()) {
-      requestBuilder.header(header.getKey(), header.getValue());
-    }
-    return sendWithDecompression(httpClient, requestBuilder.build());
-  }
-
-  private static HttpResponse<String> sendWithDecompression(
-      HttpClient httpClient, HttpRequest request) {
-    try {
-      return httpClient.send(request, createDecompressingBodyHandler());
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private static BodyHandler<String> createDecompressingBodyHandler() {
-    return (ResponseInfo responseInfo) -> {
-      String encoding = responseInfo.headers().firstValue("Content-Encoding").orElse("");
-      if (encoding.equalsIgnoreCase("gzip")) {
-        BodySubscriber<InputStream> upstream = BodySubscribers.ofInputStream();
-        return BodySubscribers.mapping(
-            upstream,
-            (InputStream is) -> {
-              try (GZIPInputStream gzipIs = new GZIPInputStream(is)) {
-                return new String(gzipIs.readAllBytes(), StandardCharsets.UTF_8);
-              } catch (IOException e) {
-                throw new UncheckedIOException(e);
-              }
-            });
-      } else {
-        return BodySubscribers.ofString(StandardCharsets.UTF_8);
-      }
-    };
   }
 
   /**
