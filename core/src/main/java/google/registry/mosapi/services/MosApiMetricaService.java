@@ -15,9 +15,9 @@
 package google.registry.mosapi.services;
 
 import google.registry.mosapi.client.DomainMetricaClient;
+import google.registry.mosapi.exception.MosApiException;
 import google.registry.mosapi.model.domainmetrica.MetricaReport;
 import google.registry.mosapi.model.domainmetrica.MetricaReportInfo;
-import google.registry.mosapi.exception.MosApiException;
 import jakarta.inject.Inject;
 import java.time.LocalDate;
 import java.util.List;

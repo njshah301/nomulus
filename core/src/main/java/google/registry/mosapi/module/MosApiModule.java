@@ -23,7 +23,6 @@ import jakarta.inject.Singleton;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringReader;
-import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
@@ -34,6 +33,10 @@ import java.security.cert.CertificateFactory;
 import java.util.Optional;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
+import okhttp3.OkHttpClient;
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
@@ -105,11 +108,16 @@ public final class MosApiModule {
   static PrivateKey providePrivateKey(@Named(MOSAPI_TLS_KEY) String tlsKey) {
     try (PEMParser pemParser = new PEMParser(new StringReader(tlsKey))) {
       Object parsedObj = pemParser.readObject();
+      JcaPEMKeyConverter converter = new JcaPEMKeyConverter();
       if (parsedObj instanceof PEMKeyPair) {
-        return new JcaPEMKeyConverter().getPrivateKey(((PEMKeyPair) parsedObj).getPrivateKeyInfo());
+        return converter.getPrivateKey(((PEMKeyPair) parsedObj).getPrivateKeyInfo());
+      } else if (parsedObj instanceof PrivateKeyInfo) {
+        return converter.getPrivateKey((PrivateKeyInfo) parsedObj);
       }
       throw new IllegalArgumentException(
-          "Could not parse TLS private key; expected PEMKeyPair format.");
+          String.format(
+              "Could not parse TLS private key; unexpected format %s",
+              parsedObj != null ? parsedObj.getClass().getName() : "null"));
     } catch (IOException e) {
       throw new RuntimeException("Could not parse TLS private key from PEM string", e);
     }
@@ -153,9 +161,24 @@ public final class MosApiModule {
   }
 
   @Provides
+  static X509TrustManager provideTrustManager() {
+    try {
+      TrustManagerFactory trustManagerFactory =
+          TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+      trustManagerFactory.init((KeyStore) null);
+      return (X509TrustManager) trustManagerFactory.getTrustManagers()[0];
+    } catch (GeneralSecurityException e) {
+      throw new RuntimeException("Could not initialize TrustManager", e);
+    }
+  }
+
+  @Provides
   @Singleton
   @Named(MOSAPI_HTTP_CLIENT)
-  static HttpClient provideMosapiHttpClient(@Named(MOSAPI_SSL_CONTEXT) SSLContext sslContext) {
-    return HttpClient.newBuilder().sslContext(sslContext).build();
+  static OkHttpClient provideMosapiHttpClient(
+      @Named(MOSAPI_SSL_CONTEXT) SSLContext sslContext, X509TrustManager trustManager) {
+    return new OkHttpClient.Builder()
+        .sslSocketFactory(sslContext.getSocketFactory(), trustManager)
+        .build();
   }
 }

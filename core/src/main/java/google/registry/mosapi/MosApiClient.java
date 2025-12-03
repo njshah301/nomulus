@@ -17,28 +17,29 @@ package google.registry.mosapi;
 import google.registry.config.RegistryConfig.Config;
 import google.registry.mosapi.exception.MosApiException;
 import google.registry.mosapi.exception.MosApiException.MosApiAuthorizationException;
-import google.registry.util.HttpUtils;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
+import java.io.IOException;
 import java.net.HttpURLConnection;
-import java.net.URI;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.stream.Collectors;
+import okhttp3.HttpUrl;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 @Singleton
 public class MosApiClient {
 
-  private final HttpClient httpClient;
+  private final OkHttpClient httpClient;
   private final String baseUrl;
 
   @Inject
   public MosApiClient(
-      @Named("mosapiHttpClient") HttpClient httpClient,
+      @Named("mosapiHttpClient") OkHttpClient httpClient,
       @Config("mosapiServiceUrl") String mosapiUrl,
       @Config("mosapiEntityType") String entityType) {
     this.httpClient = httpClient;
@@ -57,15 +58,19 @@ public class MosApiClient {
    *     status.
    * @throws MosApiAuthorizationException if the server returns a 401 Unauthorized status.
    */
-  public HttpResponse<String> sendGetRequest(
+  public Response sendGetRequest(
       String entityId, String endpoint, Map<String, String> params, Map<String, String> headers)
       throws MosApiException {
-    URI uri = buildUri(entityId, endpoint, params);
+    HttpUrl url = buildUri(entityId, endpoint, params);
+    Request.Builder requestBuilder = new Request.Builder().url(url).get();
+    headers.forEach(requestBuilder::addHeader);
     try {
-      HttpResponse<String> response = HttpUtils.sendGetRequest(httpClient, uri, headers);
+      Response response = httpClient.newCall(requestBuilder.build()).execute();
       return checkResponseForAuthError(response);
     } catch (RuntimeException e) {
-      throw new MosApiException("Error during GET request to " + uri.getPath(), e);
+      throw new MosApiException("Error during GET request to " + url, e);
+    } catch (IOException e) {
+      throw new MosApiException("IOExcpetion during GET request to " + url, e);
     }
   }
 
@@ -84,25 +89,31 @@ public class MosApiClient {
    * @throws MosApiException if the request fails.
    * @throws MosApiAuthorizationException if the server returns a 401 Unauthorized status.
    */
-  public HttpResponse<String> sendPostRequest(
+  public Response sendPostRequest(
       String entityId,
       String endpoint,
       Map<String, String> params,
       Map<String, String> headers,
       String body)
       throws MosApiException {
-    URI uri = buildUri(entityId, endpoint, params);
+    HttpUrl url = buildUri(entityId, endpoint, params);
+    RequestBody requestBody = RequestBody.create(body, MediaType.parse("application/json"));
+
+    Request.Builder requestBuilder = new Request.Builder().url(url).post(requestBody);
+    headers.forEach(requestBuilder::addHeader);
     try {
-      HttpResponse<String> response = HttpUtils.sendPostRequest(httpClient, uri, headers, body);
+      Response response = httpClient.newCall(requestBuilder.build()).execute();
       return checkResponseForAuthError(response);
     } catch (RuntimeException e) {
-      throw new MosApiException("Error during POST request to " + uri.getPath(), e);
+      throw new MosApiException("Error during POST request to " + url, e);
+    } catch (IOException e) {
+      throw new MosApiException("IoException during Post request to " + url, e);
     }
   }
 
-  private HttpResponse<String> checkResponseForAuthError(HttpResponse<String> response)
+  private Response checkResponseForAuthError(Response response)
       throws MosApiAuthorizationException {
-    if (response.statusCode() == HttpURLConnection.HTTP_UNAUTHORIZED) {
+    if (response.code() == HttpURLConnection.HTTP_UNAUTHORIZED) {
       throw new MosApiAuthorizationException(
           "Authorization failed for the requested resource. The client certificate may not be"
               + " authorized for the specified TLD or Registrar.");
@@ -113,21 +124,14 @@ public class MosApiClient {
   /**
    * Builds the full URL for a request, including the base URL, entityId, path, and query params.
    */
-  private URI buildUri(String entityId, String path, Map<String, String> queryParams) {
-    String sanitizedPath = path.startsWith("/") ? path : "/" + path;
-    String fullPath = baseUrl + "/" + entityId + sanitizedPath;
+  private HttpUrl buildUri(String entityId, String path, Map<String, String> queryParams) {
+    String sanitizedPath = path.startsWith("/") ? path.substring(1) : path;
+    HttpUrl.Builder urlBuilder =
+        HttpUrl.parse(baseUrl).newBuilder().addPathSegment(entityId).addPathSegments(sanitizedPath);
 
-    if (queryParams == null || queryParams.isEmpty()) {
-      return URI.create(fullPath);
+    if (queryParams != null) {
+      queryParams.forEach(urlBuilder::addQueryParameter);
     }
-    String queryString =
-        queryParams.entrySet().stream()
-            .map(
-                entry ->
-                    entry.getKey()
-                        + "="
-                        + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
-            .collect(Collectors.joining("&"));
-    return URI.create(fullPath + "?" + queryString);
+    return urlBuilder.build();
   }
 }

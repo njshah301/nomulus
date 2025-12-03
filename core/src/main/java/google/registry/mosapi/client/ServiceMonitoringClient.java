@@ -16,15 +16,16 @@ package google.registry.mosapi.client;
 
 import com.google.gson.Gson;
 import google.registry.mosapi.MosApiClient;
+import google.registry.mosapi.exception.MosApiException;
+import google.registry.mosapi.model.MosApiErrorResponse;
 import google.registry.mosapi.model.servicemonitoring.ServiceAlarm;
 import google.registry.mosapi.model.servicemonitoring.ServiceDowntime;
 import google.registry.mosapi.model.servicemonitoring.TldServiceState;
-import google.registry.mosapi.exception.MosApiException;
-import google.registry.mosapi.model.MosApiErrorResponse;
 import jakarta.inject.Inject;
+import java.io.IOException;
 import java.net.HttpURLConnection;
-import java.net.http.HttpResponse;
 import java.util.Collections;
+import okhttp3.Response;
 
 /** Facade for MoSAPI's service monitoring endpoints. */
 public class ServiceMonitoringClient {
@@ -44,10 +45,18 @@ public class ServiceMonitoringClient {
    *     Section 5.1</a>
    */
   public TldServiceState getServiceState(String tld) throws MosApiException {
-    String endpoint = String.format("v2/monitoring/state");
-    HttpResponse<String> response =
-        mosApiClient.sendGetRequest(tld, endpoint, Collections.emptyMap(), Collections.emptyMap());
-    return gson.fromJson(response.body(), TldServiceState.class);
+    String endpoint = "v2/monitoring/state";
+    try (Response response =
+        mosApiClient.sendGetRequest(
+            tld, endpoint, Collections.emptyMap(), Collections.emptyMap())) {
+      if (!response.isSuccessful()) {
+        throw MosApiException.create(
+            gson.fromJson(response.body().charStream(), MosApiErrorResponse.class));
+      }
+      return gson.fromJson(response.body().charStream(), TldServiceState.class);
+    } catch (IOException e) {
+      throw new MosApiException("Failed to read service state response", e);
+    }
   }
 
   /**
@@ -58,15 +67,20 @@ public class ServiceMonitoringClient {
    */
   public ServiceDowntime getDowntime(String tld, String service) throws MosApiException {
     String endpoint = String.format("v2/monitoring/%s/downtime", service);
-    HttpResponse<String> response =
-        mosApiClient.sendGetRequest(tld, endpoint, Collections.emptyMap(), Collections.emptyMap());
-    switch (response.statusCode()) {
-      case HttpURLConnection.HTTP_OK:
-        return gson.fromJson(response.body(), ServiceDowntime.class);
-      case HttpURLConnection.HTTP_NOT_FOUND:
-        return new ServiceDowntime(2, 0, 0, true);
-      default:
-        throw MosApiException.create(gson.fromJson(response.body(), MosApiErrorResponse.class));
+    try (Response response =
+        mosApiClient.sendGetRequest(
+            tld, endpoint, Collections.emptyMap(), Collections.emptyMap())) {
+      switch (response.code()) {
+        case HttpURLConnection.HTTP_OK:
+          return gson.fromJson(response.body().charStream(), ServiceDowntime.class);
+        case HttpURLConnection.HTTP_NOT_FOUND:
+          return new ServiceDowntime(2, 0, 0, true);
+        default:
+          throw MosApiException.create(
+              gson.fromJson(response.body().charStream(), MosApiErrorResponse.class));
+      }
+    } catch (IOException e) {
+      throw new MosApiException("Failed to read downtime response", e);
     }
   }
 
@@ -78,16 +92,21 @@ public class ServiceMonitoringClient {
    */
   public ServiceAlarm serviceAlarmed(String tld, String service) throws MosApiException {
     String endpoint = String.format("v2/monitoring/%s/alarmed", service);
-    HttpResponse<String> response =
-        mosApiClient.sendGetRequest(tld, endpoint, Collections.emptyMap(), Collections.emptyMap());
+    try (Response response =
+        mosApiClient.sendGetRequest(
+            tld, endpoint, Collections.emptyMap(), Collections.emptyMap())) {
 
-    switch (response.statusCode()) {
-      case HttpURLConnection.HTTP_OK:
-        return gson.fromJson(response.body(), ServiceAlarm.class);
-      case HttpURLConnection.HTTP_NOT_FOUND:
-        return new ServiceAlarm(2, 0, "Disabled");
-      default:
-        throw MosApiException.create(gson.fromJson(response.body(), MosApiErrorResponse.class));
+      switch (response.code()) {
+        case HttpURLConnection.HTTP_OK:
+          return gson.fromJson(response.body().charStream(), ServiceAlarm.class);
+        case HttpURLConnection.HTTP_NOT_FOUND:
+          return new ServiceAlarm(2, 0, "Disabled");
+        default:
+          throw MosApiException.create(
+              gson.fromJson(response.body().charStream(), MosApiErrorResponse.class));
+      }
+    } catch (IOException e) {
+      throw new MosApiException("Failed to read alarm response", e);
     }
   }
 }

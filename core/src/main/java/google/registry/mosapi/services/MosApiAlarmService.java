@@ -18,10 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.FluentLogger;
 import google.registry.config.RegistryConfig.Config;
 import google.registry.mosapi.client.ServiceMonitoringClient;
+import google.registry.mosapi.exception.MosApiException;
 import google.registry.mosapi.model.servicemonitoring.AlarmResponse;
 import google.registry.mosapi.model.servicemonitoring.AlarmStatus;
 import google.registry.mosapi.model.servicemonitoring.ServiceAlarm;
-import google.registry.mosapi.exception.MosApiException;
 import jakarta.inject.Inject;
 import java.util.List;
 
