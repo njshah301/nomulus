@@ -22,18 +22,15 @@ import java.util.stream.Collectors;
 
 /**
  * Represents known MoSAPI API result codes and their default messages.
-    *
-    * <p>The definitions for these codes can be found in the official
-    *  ICANN MoSAPI Specification,
-    * specifically in the 'Result Codes' section.
-    *
-    * @see <a href="https://www.icann.org/mosapi-specification.pdf">ICANN MoSAPI Specification</a>
-
- **/
+ *
+ * <p>The definitions for these codes can be found in the official ICANN MoSAPI Specification,
+ * specifically in the 'Result Codes' section.
+ *
+ * @see <a href="https://www.icann.org/mosapi-specification.pdf">ICANN MoSAPI Specification</a>
+ */
 public enum MosApiResponse {
-
-  DATE_DURATION_INVALID("2011", "The difference between endDate and startDate is"
-      + "more than 31 days"),
+  DATE_DURATION_INVALID(
+      "2011", "The difference between endDate and startDate is" + "more than 31 days"),
   DATE_ORDER_INVALID("2012", "The EndDate is before startDate"),
   START_DATE_SYNTAX_INVALID("2013", "StartDate syntax is invalid"),
   END_DATE_SYNTAX_INVALID("2014", "EndDate syntax is invalid");
@@ -57,8 +54,7 @@ public enum MosApiResponse {
     return defaultMessage;
   }
 
-
-   // Returns the enum constant associated with the given result code string
+  // Returns the enum constant associated with the given result code string
   public static Optional<MosApiResponse> fromCode(String code) {
 
     return Optional.ofNullable(CODE_MAP.get(code));

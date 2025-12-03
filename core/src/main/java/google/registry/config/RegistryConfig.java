@@ -50,6 +50,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.net.URI;
 import java.net.URL;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -1440,14 +1441,18 @@ public final class RegistryConfig {
 
     @Provides
     @Config("mosapiTlds")
-    public static ImmutableSet<String> provideMosapiTlds(RegistryConfigSettings config) {
-      return ImmutableSet.copyOf(config.mosapi.tlds);
+    public static List<String> provideMosapiTlds(RegistryConfigSettings config) {
+      return config.mosapi.tlds == null
+          ? ImmutableList.of()
+          : ImmutableList.copyOf(config.mosapi.tlds);
     }
 
     @Provides
     @Config("mosapiServices")
-    public static ImmutableSet<String> provideMosapiServices(RegistryConfigSettings config) {
-      return ImmutableSet.copyOf(config.mosapi.services);
+    public static List<String> provideMosapiServices(RegistryConfigSettings config) {
+      return config.mosapi.services == null
+          ? ImmutableList.of()
+          : ImmutableList.copyOf(config.mosapi.services);
     }
 
     private static String formatComments(String text) {
