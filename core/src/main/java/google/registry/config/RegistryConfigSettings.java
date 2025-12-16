@@ -277,5 +277,6 @@ public class RegistryConfigSettings {
     public List<String> services;
     public Integer tldThreadCnt;
     public Integer metricsThreadCnt;
+    public String abuseEmailAddress;
   }
 }

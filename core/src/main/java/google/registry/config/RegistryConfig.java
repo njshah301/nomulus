@@ -1726,5 +1726,17 @@ public final class RegistryConfig {
     }
   }
 
+  @Provides
+  @Config("mosapiTlds")
+  public static ImmutableSet<String> provideMosapiTlds(RegistryConfigSettings config) {
+    return ImmutableSet.copyOf(config.mosapi.tlds);
+  }
+
+  @Provides
+  @Config("mosapiAbuseEmailAddress")
+  public static InternetAddress provideMosapiAbuseEmailAddress(RegistryConfigSettings config) {
+    return parseEmailAddress(config.mosapi.abuseEmailAddress);
+  }
+
   private RegistryConfig() {}
 }

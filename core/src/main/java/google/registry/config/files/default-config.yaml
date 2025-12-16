@@ -634,7 +634,8 @@ mosapi:
   mosapiUrl: https://mosapi.icann.org
   entityType: ry
   tldThreadCnt: 4
-  metricsThreadCnt: 1
+  metricsThreadCnt: 4
+  abuseEmailAddress: "registry-abuse-support@localhost"
   # List of TLDs to be monitored.
   tlds:
   - "test"
