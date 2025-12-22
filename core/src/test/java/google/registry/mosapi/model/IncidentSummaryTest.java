@@ -56,23 +56,47 @@ public class IncidentSummaryTest {
     String json = gson.toJson(incident);
 
     // Verify fields are present and correctly named via @SerializedName
-    assertThat(json).contains("\"incidentID\":\"INC-001\"");
-    assertThat(json).contains("\"startTime\":1234567890000");
-    assertThat(json).contains("\"falsePositive\":false");
-    assertThat(json).contains("\"state\":\"Active\"");
-    assertThat(json).contains("\"endTime\":1234569990000");
+    assertThat(json)
+        .contains(
+            """
+            "incidentID":"INC-001"\
+            """
+                .trim());
+    assertThat(json)
+        .contains(
+            """
+            "startTime":1234567890000\
+            """);
+    assertThat(json)
+        .contains(
+            """
+            "falsePositive":false\
+            """);
+    assertThat(json)
+        .contains(
+            """
+            "state":"Active"\
+            """
+                .trim());
+    assertThat(json)
+        .contains(
+            """
+            "endTime":1234569990000\
+            """);
   }
 
   @Test
   void testJsonDeserialization() {
     String json =
-        "{"
-            + "\"incidentID\": \"INC-999\","
-            + "\"startTime\": 1000000,"
-            + "\"falsePositive\": true,"
-            + "\"state\": \"Resolved\","
-            + "\"endTime\": 2000000"
-            + "}";
+        """
+        {
+          "incidentID": "INC-999",
+          "startTime": 1000000,
+          "falsePositive": true,
+          "state": "Resolved",
+          "endTime": 2000000
+        }
+        """;
 
     IncidentSummary incident = gson.fromJson(json, IncidentSummary.class);
 

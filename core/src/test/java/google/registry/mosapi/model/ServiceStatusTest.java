@@ -53,25 +53,47 @@ public class ServiceStatusTest {
 
     String json = gson.toJson(serviceStatus);
 
-    assertThat(json).contains("\"status\":\"Down\"");
-    assertThat(json).contains("\"emergencyThreshold\":99.9");
-    assertThat(json).contains("\"incidents\":");
-    assertThat(json).contains("\"incidentID\":\"I1\"");
+    assertThat(json)
+        .contains(
+            """
+            "status":"Down"\
+            """
+                .trim());
+    assertThat(json)
+        .contains(
+            """
+            "emergencyThreshold":99.9\
+            """);
+    assertThat(json)
+        .contains(
+            """
+            "incidents":\
+            """);
+    assertThat(json)
+        .contains(
+            """
+            "incidentID":"I1"\
+            """
+                .trim());
   }
 
   @Test
   void testJsonDeserialization() {
     String json =
-        "{"
-            + "\"status\": \"Disabled\","
-            + "\"emergencyThreshold\": 10.0,"
-            + "\"incidents\": [{"
-            + "  \"incidentID\": \"I2\","
-            + "  \"startTime\": 200,"
-            + "  \"falsePositive\": true,"
-            + "  \"state\": \"Closed\""
-            + "}]"
-            + "}";
+        """
+        {
+          "status": "Disabled",
+          "emergencyThreshold": 10.0,
+          "incidents": [
+            {
+              "incidentID": "I2",
+              "startTime": 200,
+              "falsePositive": true,
+              "state": "Closed"
+            }
+          ]
+        }
+        """;
 
     ServiceStatus serviceStatus = gson.fromJson(json, ServiceStatus.class);
 

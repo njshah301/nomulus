@@ -52,10 +52,28 @@ public class TldServiceStateTest {
     String json = gson.toJson(state);
 
     // Verify annotated fields are present
-    assertThat(json).contains("\"tld\":\"test.tld\"");
-    assertThat(json).contains("\"status\":\"Down\"");
-    assertThat(json).contains("\"testedServices\":");
-    assertThat(json).contains("\"RDDS\":");
+    assertThat(json)
+        .contains(
+            """
+            "tld":"test.tld"\
+            """
+                .trim());
+    assertThat(json)
+        .contains(
+            """
+            "status":"Down"\
+            """
+                .trim());
+    assertThat(json)
+        .contains(
+            """
+            "testedServices":\
+            """);
+    assertThat(json)
+        .contains(
+            """
+            "RDDS":\
+            """);
 
     // Verify unannotated field (lastUpdateApiDatabase) is EXCLUDED
     assertThat(json).doesNotContain("lastUpdateApiDatabase");
@@ -65,19 +83,20 @@ public class TldServiceStateTest {
   @Test
   void testJsonDeserialization() {
     String json =
-        "{"
-            + "\"tld\": \"example.tld\","
-            + "\"status\": \"Up\","
-            // Note: lastUpdateApiDatabase is usually ignored if missing @Expose in strict mode
-            + "\"lastUpdateApiDatabase\": 55555,"
-            + "\"testedServices\": {"
-            + "  \"EPP\": {"
-            + "    \"status\": \"Up\","
-            + "    \"emergencyThreshold\": 0.0,"
-            + "    \"incidents\": []"
-            + "  }"
-            + "}"
-            + "}";
+        """
+        {
+          "tld": "example.tld",
+          "status": "Up",
+          "lastUpdateApiDatabase": 55555,
+          "testedServices": {
+            "EPP": {
+              "status": "Up",
+              "emergencyThreshold": 0.0,
+              "incidents": []
+            }
+          }
+        }
+        """;
 
     TldServiceState state = gson.fromJson(json, TldServiceState.class);
 

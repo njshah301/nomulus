@@ -55,9 +55,24 @@ public class ServiceStateSummaryTest {
 
     String json = gson.toJson(summary);
 
-    assertThat(json).contains("\"tld\":\"test.tld\"");
-    assertThat(json).contains("\"overallStatus\":\"Down\"");
-    assertThat(json).contains("\"activeIncidents\":");
+    assertThat(json)
+        .contains(
+            """
+            "tld":"test.tld"
+            """
+                .trim());
+    assertThat(json)
+        .contains(
+            """
+            "overallStatus":"Down"
+            """
+                .trim());
+    assertThat(json)
+        .contains(
+            """
+            "activeIncidents"
+            """
+                .trim());
   }
 
   @Test
@@ -67,21 +82,42 @@ public class ServiceStateSummaryTest {
 
     String json = gson.toJson(summary);
 
-    assertThat(json).contains("\"tld\":\"test.tld\"");
-    assertThat(json).contains("\"overallStatus\":\"Up\"");
-    assertThat(json).doesNotContain("\"activeIncidents\"");
+    assertThat(json)
+        .contains(
+            """
+            "tld":"test.tld"\
+            """
+                .trim());
+    assertThat(json)
+        .contains(
+            """
+            "overallStatus":"Up"\
+            """
+                .trim());
+    assertThat(json)
+        .doesNotContain(
+            """
+            "activeIncidents"\
+            """
+                .trim());
   }
 
   @Test
   void testJsonDeserialization() {
     String json =
-        "{"
-            + "\"tld\": \"example.tld\","
-            + "\"overallStatus\": \"Down\","
-            + "\"activeIncidents\": ["
-            + "  {\"status\": \"Down\", \"emergencyThreshold\": 100.0, \"incidents\": []}"
-            + "]"
-            + "}";
+        """
+        {
+          "tld": "example.tld",
+          "overallStatus": "Down",
+          "activeIncidents": [
+            {
+              "status": "Down",
+              "emergencyThreshold": 100.0,
+              "incidents": []
+            }
+          ]
+        }
+        """;
 
     ServiceStateSummary summary = gson.fromJson(json, ServiceStateSummary.class);
 

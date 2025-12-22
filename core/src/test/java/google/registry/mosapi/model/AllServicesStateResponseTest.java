@@ -44,16 +44,39 @@ public class AllServicesStateResponseTest {
     String json = gson.toJson(response);
 
     // Verify the JSON structure contains the specific key
-    assertThat(json).contains("\"serviceStates\":");
-    assertThat(json).contains("\"tld\":\"test.tld\"");
-    assertThat(json).contains("\"overallStatus\":\"Down\"");
+    assertThat(json)
+        .contains(
+            """
+            "serviceStates":\
+            """);
+    assertThat(json)
+        .contains(
+            """
+            "tld":"test.tld"\
+            """
+                .trim());
+    assertThat(json)
+        .contains(
+            """
+            "overallStatus":"Down"\
+            """
+                .trim());
   }
 
   @Test
   void testJsonDeserialization_readsCorrectFieldName() {
     String json =
-        "{\"serviceStates\": [{\"tld\": \"example.tld\", "
-            + "\"overallStatus\": \"Up\", \"activeIncidents\": []}]}";
+        """
+        {
+          "serviceStates": [
+            {
+              "tld": "example.tld",
+              "overallStatus": "Up",
+              "activeIncidents": []
+            }
+          ]
+        }
+        """;
 
     AllServicesStateResponse response = gson.fromJson(json, AllServicesStateResponse.class);
 
@@ -68,6 +91,10 @@ public class AllServicesStateResponseTest {
 
     String json = gson.toJson(response);
 
-    assertThat(json).isEqualTo("{\"serviceStates\":[]}");
+    assertThat(json)
+        .isEqualTo(
+            """
+            {"serviceStates":[]}\
+            """);
   }
 }
