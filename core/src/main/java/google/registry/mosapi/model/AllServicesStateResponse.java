@@ -26,18 +26,15 @@ import java.util.List;
  * @see <a href="https://www.icann.org/mosapi-specification.pdf">ICANN MoSAPI Specification, Section
  *     5.1</a>
  */
-public final class AllServicesStateResponse {
+public record AllServicesStateResponse(
+    // A list of state summaries for each monitored service (e.g. DNS, RDDS, etc.)
+    @Expose @SerializedName("serviceStates") List<ServiceStateSummary> serviceStates) {
 
-  // A list of state summaries for each monitored service (e.g. DNS, RDDS, etc.)
-  @Expose
-  @SerializedName("serviceStates")
-  private final List<ServiceStateSummary> serviceStates;
-
-  public AllServicesStateResponse(List<ServiceStateSummary> serviceStates) {
-    this.serviceStates = serviceStates;
+  public AllServicesStateResponse {
+    serviceStates = List.copyOf(serviceStates);
   }
 
   public List<ServiceStateSummary> getServiceStates() {
-    return serviceStates;
+    return serviceStates();
   }
 }

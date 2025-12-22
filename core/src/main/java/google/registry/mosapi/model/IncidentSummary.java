@@ -24,54 +24,31 @@ import javax.annotation.Nullable;
  * @see <a href="https://www.icann.org/mosapi-specification.pdf">ICANN MoSAPI Specification, Section
  *     5.1</a>
  */
-public final class IncidentSummary {
-  @Expose
-  @SerializedName("incidentID")
-  private String incidentID;
+public record IncidentSummary(
+    @Expose @SerializedName("incidentID") String incidentID,
+    @Expose @SerializedName("startTime") long startTime,
+    @Expose @SerializedName("falsePositive") boolean falsePositive,
+    @Expose @SerializedName("state") String state,
+    @Expose @SerializedName("endTime") @Nullable Long endTime) {
 
-  @Expose
-  @SerializedName("startTime")
-  private long startTime;
-
-  @Expose
-  @SerializedName("falsePositive")
-  private boolean falsePositive;
-
-  @Expose
-  @SerializedName("state")
-  private String state;
-
-  @Expose
-  @SerializedName("endTime")
-  @Nullable
-  private Long endTime;
-
-  public IncidentSummary(
-      String incidentID, long startTime, boolean falsePositive, String state, Long endTime) {
-    this.incidentID = incidentID;
-    this.startTime = startTime;
-    this.falsePositive = falsePositive;
-    this.state = state;
-    this.endTime = endTime;
-  }
-
+  // Getters for compatibility with existing code
   public String getIncidentID() {
-    return incidentID;
+    return incidentID();
   }
 
   public long getStartTime() {
-    return startTime;
+    return startTime();
   }
 
   public boolean isFalsePositive() {
-    return falsePositive;
+    return falsePositive();
   }
 
   public String getState() {
-    return state;
+    return state();
   }
 
   public Long getEndTime() {
-    return endTime;
+    return endTime();
   }
 }

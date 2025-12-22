@@ -24,48 +24,37 @@ import java.util.Map;
  * @see <a href="https://www.icann.org/mosapi-specification.pdf">ICANN MoSAPI Specification, Section
  *     5.1</a>
  */
-public final class TldServiceState {
-  @Expose
-  @SerializedName("tld")
-  private final String tld;
+public record TldServiceState(
+    @Expose @SerializedName("tld") String tld,
+    long lastUpdateApiDatabase,
 
-  private final long lastUpdateApiDatabase;
+    // A JSON string that contains the status of the TLD as seen from the monitoring system
+    @Expose @SerializedName("status") String status,
 
-  // A JSON string that contains the status of the TLD as seen from the monitoring system
-  @Expose
-  @SerializedName("status")
-  private final String status;
+    // A JSON object containing detailed information for each potential monitored service (i.e.,
+    // DNS,
+    //  RDDS, EPP, DNSSEC, RDAP).
+    @Expose @SerializedName("testedServices") Map<String, ServiceStatus> serviceStatuses) {
 
-  // A JSON object containing detailed information for each potential monitored service (i.e., DNS,
-  //  RDDS, EPP, DNSSEC, RDAP).
-  @Expose
-  @SerializedName("testedServices")
-  private final Map<String, ServiceStatus> serviceStatuses;
-
-  public TldServiceState(
-      String tld,
-      long lastUpdateApiDatabase,
-      String status,
-      Map<String, ServiceStatus> serviceStatuses) {
-    this.tld = tld;
-    this.lastUpdateApiDatabase = lastUpdateApiDatabase;
-    this.status = status;
-    this.serviceStatuses = serviceStatuses;
+  public TldServiceState {
+    // Defensive copy to ensure the map is immutable
+    serviceStatuses = Map.copyOf(serviceStatuses);
   }
 
+  /** Getters for backward compatibility */
   public String getTld() {
-    return tld;
+    return tld();
   }
 
   public long getLastUpdateApiDatabase() {
-    return lastUpdateApiDatabase;
+    return lastUpdateApiDatabase();
   }
 
   public String getStatus() {
-    return status;
+    return status();
   }
 
   public Map<String, ServiceStatus> getServiceStatuses() {
-    return serviceStatuses;
+    return serviceStatuses();
   }
 }
