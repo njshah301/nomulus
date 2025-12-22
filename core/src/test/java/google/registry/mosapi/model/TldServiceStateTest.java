@@ -36,10 +36,10 @@ public class TldServiceStateTest {
 
     TldServiceState state = new TldServiceState("example.tld", 123456L, "Up", services);
 
-    assertThat(state.getTld()).isEqualTo("example.tld");
-    assertThat(state.getLastUpdateApiDatabase()).isEqualTo(123456L);
-    assertThat(state.getStatus()).isEqualTo("Up");
-    assertThat(state.getServiceStatuses()).containsEntry("DNS", dnsStatus);
+    assertThat(state.tld()).isEqualTo("example.tld");
+    assertThat(state.lastUpdateApiDatabase()).isEqualTo(123456L);
+    assertThat(state.status()).isEqualTo("Up");
+    assertThat(state.serviceStatuses()).containsEntry("DNS", dnsStatus);
   }
 
   @Test
@@ -52,10 +52,28 @@ public class TldServiceStateTest {
     String json = gson.toJson(state);
 
     // Verify annotated fields are present
-    assertThat(json).contains("\"tld\":\"test.tld\"");
-    assertThat(json).contains("\"status\":\"Down\"");
-    assertThat(json).contains("\"testedServices\":");
-    assertThat(json).contains("\"RDDS\":");
+    assertThat(json)
+        .contains(
+            """
+            "tld":"test.tld"\
+            """
+                .trim());
+    assertThat(json)
+        .contains(
+            """
+            "status":"Down"\
+            """
+                .trim());
+    assertThat(json)
+        .contains(
+            """
+            "testedServices":\
+            """);
+    assertThat(json)
+        .contains(
+            """
+            "RDDS":\
+            """);
 
     // Verify unannotated field (lastUpdateApiDatabase) is EXCLUDED
     assertThat(json).doesNotContain("lastUpdateApiDatabase");
@@ -65,29 +83,30 @@ public class TldServiceStateTest {
   @Test
   void testJsonDeserialization() {
     String json =
-        "{"
-            + "\"tld\": \"example.tld\","
-            + "\"status\": \"Up\","
-            // Note: lastUpdateApiDatabase is usually ignored if missing @Expose in strict mode
-            + "\"lastUpdateApiDatabase\": 55555,"
-            + "\"testedServices\": {"
-            + "  \"EPP\": {"
-            + "    \"status\": \"Up\","
-            + "    \"emergencyThreshold\": 0.0,"
-            + "    \"incidents\": []"
-            + "  }"
-            + "}"
-            + "}";
+        """
+        {
+          "tld": "example.tld",
+          "status": "Up",
+          "lastUpdateApiDatabase": 55555,
+          "testedServices": {
+            "EPP": {
+              "status": "Up",
+              "emergencyThreshold": 0.0,
+              "incidents": []
+            }
+          }
+        }
+        """;
 
     TldServiceState state = gson.fromJson(json, TldServiceState.class);
 
-    assertThat(state.getTld()).isEqualTo("example.tld");
-    assertThat(state.getStatus()).isEqualTo("Up");
+    assertThat(state.tld()).isEqualTo("example.tld");
+    assertThat(state.status()).isEqualTo("Up");
 
     // Check map deserialization
-    assertThat(state.getServiceStatuses()).containsKey("EPP");
-    assertThat(state.getServiceStatuses().get("EPP").getStatus()).isEqualTo("Up");
+    assertThat(state.serviceStatuses()).containsKey("EPP");
+    assertThat(state.serviceStatuses().get("EPP").status()).isEqualTo("Up");
 
-    assertThat(state.getLastUpdateApiDatabase()).isEqualTo(0L);
+    assertThat(state.lastUpdateApiDatabase()).isEqualTo(0L);
   }
 }

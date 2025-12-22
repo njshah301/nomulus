@@ -31,9 +31,9 @@ public class ServiceStatusTest {
   void testConstructorAndGetters_emptyIncidents() {
     ServiceStatus serviceStatus = new ServiceStatus("Up", 0.0, Collections.emptyList());
 
-    assertThat(serviceStatus.getStatus()).isEqualTo("Up");
-    assertThat(serviceStatus.getEmergencyThreshold()).isEqualTo(0.0);
-    assertThat(serviceStatus.getIncidents()).isEmpty();
+    assertThat(serviceStatus.status()).isEqualTo("Up");
+    assertThat(serviceStatus.emergencyThreshold()).isEqualTo(0.0);
+    assertThat(serviceStatus.incidents()).isEmpty();
   }
 
   @Test
@@ -41,9 +41,9 @@ public class ServiceStatusTest {
     IncidentSummary incident = new IncidentSummary("I1", 100L, false, "Open", null);
     ServiceStatus serviceStatus = new ServiceStatus("Down", 50.5, ImmutableList.of(incident));
 
-    assertThat(serviceStatus.getStatus()).isEqualTo("Down");
-    assertThat(serviceStatus.getEmergencyThreshold()).isEqualTo(50.5);
-    assertThat(serviceStatus.getIncidents()).containsExactly(incident);
+    assertThat(serviceStatus.status()).isEqualTo("Down");
+    assertThat(serviceStatus.emergencyThreshold()).isEqualTo(50.5);
+    assertThat(serviceStatus.incidents()).containsExactly(incident);
   }
 
   @Test
@@ -53,31 +53,53 @@ public class ServiceStatusTest {
 
     String json = gson.toJson(serviceStatus);
 
-    assertThat(json).contains("\"status\":\"Down\"");
-    assertThat(json).contains("\"emergencyThreshold\":99.9");
-    assertThat(json).contains("\"incidents\":");
-    assertThat(json).contains("\"incidentID\":\"I1\"");
+    assertThat(json)
+        .contains(
+            """
+            "status":"Down"\
+            """
+                .trim());
+    assertThat(json)
+        .contains(
+            """
+            "emergencyThreshold":99.9\
+            """);
+    assertThat(json)
+        .contains(
+            """
+            "incidents":\
+            """);
+    assertThat(json)
+        .contains(
+            """
+            "incidentID":"I1"\
+            """
+                .trim());
   }
 
   @Test
   void testJsonDeserialization() {
     String json =
-        "{"
-            + "\"status\": \"Disabled\","
-            + "\"emergencyThreshold\": 10.0,"
-            + "\"incidents\": [{"
-            + "  \"incidentID\": \"I2\","
-            + "  \"startTime\": 200,"
-            + "  \"falsePositive\": true,"
-            + "  \"state\": \"Closed\""
-            + "}]"
-            + "}";
+        """
+        {
+          "status": "Disabled",
+          "emergencyThreshold": 10.0,
+          "incidents": [
+            {
+              "incidentID": "I2",
+              "startTime": 200,
+              "falsePositive": true,
+              "state": "Closed"
+            }
+          ]
+        }
+        """;
 
     ServiceStatus serviceStatus = gson.fromJson(json, ServiceStatus.class);
 
-    assertThat(serviceStatus.getStatus()).isEqualTo("Disabled");
-    assertThat(serviceStatus.getEmergencyThreshold()).isEqualTo(10.0);
-    assertThat(serviceStatus.getIncidents()).hasSize(1);
-    assertThat(serviceStatus.getIncidents().get(0).getIncidentID()).isEqualTo("I2");
+    assertThat(serviceStatus.status()).isEqualTo("Disabled");
+    assertThat(serviceStatus.emergencyThreshold()).isEqualTo(10.0);
+    assertThat(serviceStatus.incidents()).hasSize(1);
+    assertThat(serviceStatus.incidents().get(0).incidentID()).isEqualTo("I2");
   }
 }

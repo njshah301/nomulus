@@ -33,18 +33,18 @@ public class ServiceStateSummaryTest {
     ServiceStateSummary summary =
         new ServiceStateSummary("example.tld", "Down", ImmutableList.of(status));
 
-    assertThat(summary.getTld()).isEqualTo("example.tld");
-    assertThat(summary.getOverallStatus()).isEqualTo("Down");
-    assertThat(summary.getActiveIncidents()).containsExactly(status);
+    assertThat(summary.tld()).isEqualTo("example.tld");
+    assertThat(summary.overallStatus()).isEqualTo("Down");
+    assertThat(summary.activeIncidents()).containsExactly(status);
   }
 
   @Test
   void testConstructorAndGetters_nullIncidents() {
     ServiceStateSummary summary = new ServiceStateSummary("example.tld", "Up", null);
 
-    assertThat(summary.getTld()).isEqualTo("example.tld");
-    assertThat(summary.getOverallStatus()).isEqualTo("Up");
-    assertThat(summary.getActiveIncidents()).isNull();
+    assertThat(summary.tld()).isEqualTo("example.tld");
+    assertThat(summary.overallStatus()).isEqualTo("Up");
+    assertThat(summary.activeIncidents()).isNull();
   }
 
   @Test
@@ -55,9 +55,24 @@ public class ServiceStateSummaryTest {
 
     String json = gson.toJson(summary);
 
-    assertThat(json).contains("\"tld\":\"test.tld\"");
-    assertThat(json).contains("\"overallStatus\":\"Down\"");
-    assertThat(json).contains("\"activeIncidents\":");
+    assertThat(json)
+        .contains(
+            """
+            "tld":"test.tld"
+            """
+                .trim());
+    assertThat(json)
+        .contains(
+            """
+            "overallStatus":"Down"
+            """
+                .trim());
+    assertThat(json)
+        .contains(
+            """
+            "activeIncidents"
+            """
+                .trim());
   }
 
   @Test
@@ -67,27 +82,48 @@ public class ServiceStateSummaryTest {
 
     String json = gson.toJson(summary);
 
-    assertThat(json).contains("\"tld\":\"test.tld\"");
-    assertThat(json).contains("\"overallStatus\":\"Up\"");
-    assertThat(json).doesNotContain("\"activeIncidents\"");
+    assertThat(json)
+        .contains(
+            """
+            "tld":"test.tld"
+            """
+                .trim());
+    assertThat(json)
+        .contains(
+            """
+            "overallStatus":"Up"
+            """
+                .trim());
+    assertThat(json)
+        .doesNotContain(
+            """
+            "activeIncidents"
+            """
+                .trim());
   }
 
   @Test
   void testJsonDeserialization() {
     String json =
-        "{"
-            + "\"tld\": \"example.tld\","
-            + "\"overallStatus\": \"Down\","
-            + "\"activeIncidents\": ["
-            + "  {\"status\": \"Down\", \"emergencyThreshold\": 100.0, \"incidents\": []}"
-            + "]"
-            + "}";
+        """
+        {
+          "tld": "example.tld",
+          "overallStatus": "Down",
+          "activeIncidents": [
+            {
+              "status": "Down",
+              "emergencyThreshold": 100.0,
+              "incidents": []
+            }
+          ]
+        }
+        """;
 
     ServiceStateSummary summary = gson.fromJson(json, ServiceStateSummary.class);
 
-    assertThat(summary.getTld()).isEqualTo("example.tld");
-    assertThat(summary.getOverallStatus()).isEqualTo("Down");
-    assertThat(summary.getActiveIncidents()).hasSize(1);
-    assertThat(summary.getActiveIncidents().get(0).getStatus()).isEqualTo("Down");
+    assertThat(summary.tld()).isEqualTo("example.tld");
+    assertThat(summary.overallStatus()).isEqualTo("Down");
+    assertThat(summary.activeIncidents()).hasSize(1);
+    assertThat(summary.activeIncidents().get(0).status()).isEqualTo("Down");
   }
 }

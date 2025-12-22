@@ -56,9 +56,9 @@ class MosApiStateServiceTest {
 
     ServiceStateSummary result = service.getServiceStateSummary("tld1");
 
-    assertThat(result.getTld()).isEqualTo("tld1");
-    assertThat(result.getOverallStatus()).isEqualTo("Up");
-    assertThat(result.getActiveIncidents()).isNull();
+    assertThat(result.tld()).isEqualTo("tld1");
+    assertThat(result.overallStatus()).isEqualTo("Up");
+    assertThat(result.activeIncidents()).isNull();
   }
 
   @Test
@@ -76,12 +76,12 @@ class MosApiStateServiceTest {
 
     ServiceStateSummary result = service.getServiceStateSummary("tld1");
 
-    assertThat(result.getOverallStatus()).isEqualTo("Down");
-    assertThat(result.getActiveIncidents()).hasSize(1);
+    assertThat(result.overallStatus()).isEqualTo("Down");
+    assertThat(result.activeIncidents()).hasSize(1);
 
-    ServiceStatus incidentSummary = result.getActiveIncidents().get(0);
-    assertThat(incidentSummary.getStatus()).isEqualTo("DNS");
-    assertThat(incidentSummary.getIncidents()).containsExactly(dnsIncident);
+    ServiceStatus incidentSummary = result.activeIncidents().get(0);
+    assertThat(incidentSummary.status()).isEqualTo("DNS");
+    assertThat(incidentSummary.incidents()).containsExactly(dnsIncident);
   }
 
   @Test
@@ -101,8 +101,8 @@ class MosApiStateServiceTest {
 
     AllServicesStateResponse response = service.getAllServiceStateSummaries();
 
-    assertThat(response.getServiceStates()).hasSize(2);
-    assertThat(response.getServiceStates().stream().map(ServiceStateSummary::getTld))
+    assertThat(response.serviceStates()).hasSize(2);
+    assertThat(response.serviceStates().stream().map(ServiceStateSummary::tld))
         .containsExactly("tld1", "tld2");
   }
 
@@ -115,22 +115,16 @@ class MosApiStateServiceTest {
 
     AllServicesStateResponse response = service.getAllServiceStateSummaries();
 
-    assertThat(response.getServiceStates()).hasSize(2);
+    assertThat(response.serviceStates()).hasSize(2);
 
     ServiceStateSummary summary1 =
-        response.getServiceStates().stream()
-            .filter(s -> s.getTld().equals("tld1"))
-            .findFirst()
-            .get();
-    assertThat(summary1.getOverallStatus()).isEqualTo("Up");
+        response.serviceStates().stream().filter(s -> s.tld().equals("tld1")).findFirst().get();
+    assertThat(summary1.overallStatus()).isEqualTo("Up");
 
     ServiceStateSummary summary2 =
-        response.getServiceStates().stream()
-            .filter(s -> s.getTld().equals("tld2"))
-            .findFirst()
-            .get();
+        response.serviceStates().stream().filter(s -> s.tld().equals("tld2")).findFirst().get();
 
-    assertThat(summary2.getOverallStatus()).isEqualTo("ERROR");
-    assertThat(summary2.getActiveIncidents()).isNull();
+    assertThat(summary2.overallStatus()).isEqualTo("ERROR");
+    assertThat(summary2.activeIncidents()).isNull();
   }
 }
