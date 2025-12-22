@@ -38,7 +38,7 @@ public record TldServiceState(
 
   public TldServiceState {
     // Defensive copy to ensure the map is immutable
-    serviceStatuses = Map.copyOf(serviceStatuses);
+    serviceStatuses = serviceStatuses == null ? Map.of() : Map.copyOf(serviceStatuses);
   }
 
   /** Getters for backward compatibility */
