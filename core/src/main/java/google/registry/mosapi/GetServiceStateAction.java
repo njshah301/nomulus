@@ -14,7 +14,6 @@
 
 package google.registry.mosapi;
 
-import com.google.common.flogger.FluentLogger;
 import com.google.common.net.MediaType;
 import com.google.gson.Gson;
 import google.registry.request.Action;
@@ -32,7 +31,6 @@ import java.util.Optional;
     method = Action.Method.GET,
     auth = Auth.AUTH_ADMIN)
 public class GetServiceStateAction implements Runnable {
-  private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
   public static final String PATH = "/_dr/mosapi/getServiceState";
   public static final String TLD_PARAM = "tld";
@@ -64,8 +62,6 @@ public class GetServiceStateAction implements Runnable {
         response.setPayload(gson.toJson(stateService.getAllServiceStateSummaries()));
       }
     } catch (MosApiException e) {
-      logger.atWarning().withCause(e).log(
-          "MoSAPI client failed to get Service state for %s TLD", tld.orElse("all"));
       throw new ServiceUnavailableException("Error fetching MoSAPI service state.");
     }
   }

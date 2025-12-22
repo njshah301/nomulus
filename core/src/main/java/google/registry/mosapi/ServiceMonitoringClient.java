@@ -25,6 +25,7 @@ import okhttp3.Response;
 
 /** Facade for MoSAPI's service monitoring endpoints. */
 public class ServiceMonitoringClient {
+
   private final MosApiClient mosApiClient;
   private final Gson gson;
 

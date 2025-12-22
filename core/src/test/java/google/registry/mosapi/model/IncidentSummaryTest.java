@@ -31,11 +31,11 @@ public class IncidentSummaryTest {
     IncidentSummary incident =
         new IncidentSummary("INC-001", 1672531200000L, false, "Open", 1672617600000L);
 
-    assertThat(incident.getIncidentID()).isEqualTo("INC-001");
-    assertThat(incident.getStartTime()).isEqualTo(1672531200000L);
-    assertThat(incident.isFalsePositive()).isFalse();
-    assertThat(incident.getState()).isEqualTo("Open");
-    assertThat(incident.getEndTime()).isEqualTo(1672617600000L);
+    assertThat(incident.incidentID()).isEqualTo("INC-001");
+    assertThat(incident.startTime()).isEqualTo(1672531200000L);
+    assertThat(incident.falsePositive()).isFalse();
+    assertThat(incident.state()).isEqualTo("Open");
+    assertThat(incident.endTime()).isEqualTo(1672617600000L);
   }
 
   @Test
@@ -43,9 +43,9 @@ public class IncidentSummaryTest {
     // Tests that endTime can be null (e.g. for an ongoing incident)
     IncidentSummary incident = new IncidentSummary("INC-002", 1672531200000L, true, "Closed", null);
 
-    assertThat(incident.getIncidentID()).isEqualTo("INC-002");
-    assertThat(incident.isFalsePositive()).isTrue();
-    assertThat(incident.getEndTime()).isNull();
+    assertThat(incident.incidentID()).isEqualTo("INC-002");
+    assertThat(incident.falsePositive()).isTrue();
+    assertThat(incident.endTime()).isNull();
   }
 
   @Test
@@ -56,30 +56,54 @@ public class IncidentSummaryTest {
     String json = gson.toJson(incident);
 
     // Verify fields are present and correctly named via @SerializedName
-    assertThat(json).contains("\"incidentID\":\"INC-001\"");
-    assertThat(json).contains("\"startTime\":1234567890000");
-    assertThat(json).contains("\"falsePositive\":false");
-    assertThat(json).contains("\"state\":\"Active\"");
-    assertThat(json).contains("\"endTime\":1234569990000");
+    assertThat(json)
+        .contains(
+            """
+            "incidentID":"INC-001"\
+            """
+                .trim());
+    assertThat(json)
+        .contains(
+            """
+            "startTime":1234567890000\
+            """);
+    assertThat(json)
+        .contains(
+            """
+            "falsePositive":false\
+            """);
+    assertThat(json)
+        .contains(
+            """
+            "state":"Active"\
+            """
+                .trim());
+    assertThat(json)
+        .contains(
+            """
+            "endTime":1234569990000\
+            """);
   }
 
   @Test
   void testJsonDeserialization() {
     String json =
-        "{"
-            + "\"incidentID\": \"INC-999\","
-            + "\"startTime\": 1000000,"
-            + "\"falsePositive\": true,"
-            + "\"state\": \"Resolved\","
-            + "\"endTime\": 2000000"
-            + "}";
+        """
+        {
+          "incidentID": "INC-999",
+          "startTime": 1000000,
+          "falsePositive": true,
+          "state": "Resolved",
+          "endTime": 2000000
+        }
+        """;
 
     IncidentSummary incident = gson.fromJson(json, IncidentSummary.class);
 
-    assertThat(incident.getIncidentID()).isEqualTo("INC-999");
-    assertThat(incident.getStartTime()).isEqualTo(1000000L);
-    assertThat(incident.isFalsePositive()).isTrue();
-    assertThat(incident.getState()).isEqualTo("Resolved");
-    assertThat(incident.getEndTime()).isEqualTo(2000000L);
+    assertThat(incident.incidentID()).isEqualTo("INC-999");
+    assertThat(incident.startTime()).isEqualTo(1000000L);
+    assertThat(incident.falsePositive()).isTrue();
+    assertThat(incident.state()).isEqualTo("Resolved");
+    assertThat(incident.endTime()).isEqualTo(2000000L);
   }
 }

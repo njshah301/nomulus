@@ -32,6 +32,7 @@ import java.util.concurrent.ExecutorService;
 
 /** A service that provides business logic for interacting with MoSAPI Service State. */
 public class MosApiStateService {
+
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
   private final ServiceMonitoringClient serviceMonitoringClient;
   private final ExecutorService tldExecutor;
@@ -91,24 +92,24 @@ public class MosApiStateService {
 
   private ServiceStateSummary transformToSummary(TldServiceState rawState) {
     List<ServiceStatus> activeIncidents = null;
-    if (DOWN_STATUS.equalsIgnoreCase(rawState.getStatus())) {
+    if (DOWN_STATUS.equalsIgnoreCase(rawState.status())) {
       activeIncidents =
-          rawState.getServiceStatuses().entrySet().stream()
+          rawState.serviceStatuses().entrySet().stream()
               .filter(
                   entry -> {
                     ServiceStatus serviceStatus = entry.getValue();
-                    return serviceStatus.getIncidents() != null
-                        && !serviceStatus.getIncidents().isEmpty();
+                    return serviceStatus.incidents() != null
+                        && !serviceStatus.incidents().isEmpty();
                   })
               .map(
                   entry ->
                       new ServiceStatus(
                           // key is the service name
                           entry.getKey(),
-                          entry.getValue().getEmergencyThreshold(),
-                          entry.getValue().getIncidents()))
+                          entry.getValue().emergencyThreshold(),
+                          entry.getValue().incidents()))
               .collect(toImmutableList());
     }
-    return new ServiceStateSummary(rawState.getTld(), rawState.getStatus(), activeIncidents);
+    return new ServiceStateSummary(rawState.tld(), rawState.status(), activeIncidents);
   }
 }

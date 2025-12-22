@@ -36,6 +36,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /** Unit tests for {@link GetServiceStateAction}. */
 @ExtendWith(MockitoExtension.class)
 public class GetServiceStateActionTest {
+
   @Mock private MosApiStateService stateService;
   private final FakeResponse response = new FakeResponse();
   private final Gson gson = new Gson();

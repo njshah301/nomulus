@@ -28,42 +28,12 @@ import javax.annotation.Nullable;
  * @see <a href="https://www.icann.org/mosapi-specification.pdf">ICANN MoSAPI Specification, Section
  *     5.1</a>
  */
-public final class ServiceStateSummary {
-  @Expose
-  @SerializedName("tld")
-  private final String tld;
+public record ServiceStateSummary(
+    @Expose @SerializedName("tld") String tld,
+    @Expose @SerializedName("overallStatus") String overallStatus,
+    @Expose @SerializedName("activeIncidents") @Nullable List<ServiceStatus> activeIncidents) {
 
-  // The overall status of the TLD (e.g. "Up", "Down", "UP-inconclusive")
-  @Expose
-  @SerializedName("overallStatus")
-  private final String overallStatus;
-
-  /*
-    A list of summaries for services that currently have active incidents. May be null or empty if
-    the status is "up"
-  */
-  @Expose
-  @SerializedName("activeIncidents")
-  @Nullable
-  private final List<ServiceStatus> activeIncidents;
-
-  public ServiceStateSummary(
-      String tld, String overallStatus, @Nullable List<ServiceStatus> activeIncidents) {
-    this.tld = tld;
-    this.overallStatus = overallStatus;
-    this.activeIncidents = activeIncidents;
-  }
-
-  public String getTld() {
-    return tld;
-  }
-
-  public String getOverallStatus() {
-    return overallStatus;
-  }
-
-  @Nullable
-  public List<ServiceStatus> getActiveIncidents() {
-    return activeIncidents;
+  public ServiceStateSummary {
+    activeIncidents = activeIncidents == null ? null : List.copyOf(activeIncidents);
   }
 }
