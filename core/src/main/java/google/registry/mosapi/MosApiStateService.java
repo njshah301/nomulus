@@ -20,13 +20,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.FluentLogger;
 import google.registry.config.RegistryConfig.Config;
-import google.registry.mosapi.model.AllServicesStateResponse;
-import google.registry.mosapi.model.ServiceStateSummary;
-import google.registry.mosapi.model.ServiceStatus;
-import google.registry.mosapi.model.TldServiceState;
+import google.registry.mosapi.MosApiModels.AllServicesStateResponse;
+import google.registry.mosapi.MosApiModels.ServiceStateSummary;
+import google.registry.mosapi.MosApiModels.ServiceStatus;
+import google.registry.mosapi.MosApiModels.TldServiceState;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
@@ -52,14 +51,10 @@ public class MosApiStateService {
     this.tldExecutor = tldExecutor;
   }
 
-  /** Shared internal logic to fetch raw data from ICANN MoSAPI state monitoring. */
-  private TldServiceState fetchRawState(String tld) throws MosApiException {
-    return serviceMonitoringClient.getTldServiceState(tld);
-  }
-
   /** Fetches and transforms the service state for a given TLD into a summary. */
   public ServiceStateSummary getServiceStateSummary(String tld) throws MosApiException {
-    return transformToSummary(fetchRawState(tld));
+    TldServiceState rawState = serviceMonitoringClient.getTldServiceState(tld);
+    return transformToSummary(rawState);
   }
 
   /** Fetches and transforms the service state for all configured TLDs. */
@@ -91,7 +86,7 @@ public class MosApiStateService {
   }
 
   private ServiceStateSummary transformToSummary(TldServiceState rawState) {
-    List<ServiceStatus> activeIncidents = null;
+    ImmutableList<ServiceStatus> activeIncidents = ImmutableList.of();
     if (DOWN_STATUS.equalsIgnoreCase(rawState.status())) {
       activeIncidents =
           rawState.serviceStatuses().entrySet().stream()
