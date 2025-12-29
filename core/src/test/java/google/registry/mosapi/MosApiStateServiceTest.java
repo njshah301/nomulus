@@ -22,11 +22,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.MoreExecutors;
-import google.registry.mosapi.model.AllServicesStateResponse;
-import google.registry.mosapi.model.IncidentSummary;
-import google.registry.mosapi.model.ServiceStateSummary;
-import google.registry.mosapi.model.ServiceStatus;
-import google.registry.mosapi.model.TldServiceState;
+import google.registry.mosapi.MosApiModels.AllServicesStateResponse;
+import google.registry.mosapi.MosApiModels.IncidentSummary;
+import google.registry.mosapi.MosApiModels.ServiceStateSummary;
+import google.registry.mosapi.MosApiModels.ServiceStatus;
+import google.registry.mosapi.MosApiModels.TldServiceState;
 import java.util.concurrent.ExecutorService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,7 +58,7 @@ class MosApiStateServiceTest {
 
     assertThat(result.tld()).isEqualTo("tld1");
     assertThat(result.overallStatus()).isEqualTo("Up");
-    assertThat(result.activeIncidents()).isNull();
+    assertThat(result.activeIncidents()).isEmpty();
   }
 
   @Test
@@ -125,6 +125,6 @@ class MosApiStateServiceTest {
         response.serviceStates().stream().filter(s -> s.tld().equals("tld2")).findFirst().get();
 
     assertThat(summary2.overallStatus()).isEqualTo("ERROR");
-    assertThat(summary2.activeIncidents()).isNull();
+    assertThat(summary2.activeIncidents()).isEmpty();
   }
 }

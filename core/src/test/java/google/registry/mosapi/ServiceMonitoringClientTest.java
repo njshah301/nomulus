@@ -27,7 +27,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
-import google.registry.mosapi.model.TldServiceState;
+import google.registry.mosapi.MosApiModels.TldServiceState;
 import java.io.IOException;
 import java.io.Reader;
 import okhttp3.MediaType;
