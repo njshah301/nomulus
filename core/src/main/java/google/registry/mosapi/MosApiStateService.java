@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.FluentLogger;
 import google.registry.config.RegistryConfig.Config;
 import google.registry.mosapi.MosApiModels.AllServicesStateResponse;
+import google.registry.mosapi.MosApiMetrics;
 import google.registry.mosapi.MosApiModels.ServiceStateSummary;
 import google.registry.mosapi.MosApiModels.ServiceStatus;
 import google.registry.mosapi.MosApiModels.TldServiceState;
@@ -41,15 +42,19 @@ public class MosApiStateService {
 
   private final ImmutableSet<String> tlds;
 
+  private final MosApiMetrics mosApiMetrics;
+
   private static final String DOWN_STATUS = "Down";
   private static final String FETCH_ERROR_STATUS = "ERROR";
 
   @Inject
   public MosApiStateService(
       ServiceMonitoringClient serviceMonitoringClient,
+      MosApiMetrics mosApiMetrics,
       @Config("mosapiTlds") ImmutableSet<String> tlds,
       @Named("mosapiTldExecutor") ExecutorService tldExecutor) {
     this.serviceMonitoringClient = serviceMonitoringClient;
+    this.mosApiMetrics = mosApiMetrics;
     this.tlds = tlds;
     this.tldExecutor = tldExecutor;
   }
@@ -88,18 +93,18 @@ public class MosApiStateService {
     return new AllServicesStateResponse(summaries);
   }
 
-  /**
-   * For API: /triggerServiceState Fetches state and exposes it to Cloud Monitoring. Skips summary
-   * transformation.
-   */
-  public void triggerAndExposeMetrics(String tld) {
-    try {
-      TldServiceState rawState = serviceMonitoringClient.getTldServiceState(tld);
-      // b/467541269: Expose MosApi Service Monitoring response to Cloud monitoring
-    } catch (MosApiException e) {
-      logger.atWarning().withCause(e).log("Failed to expose metrics for TLD %s.", tld);
-    }
-  }
+  // /**
+  //  * For API: /triggerServiceState Fetches state and exposes it to Cloud Monitoring. Skips summary
+  //  * transformation.
+  //  */
+  // public void triggerAndExposeMetrics(String tld) {
+  //   try {
+  //     TldServiceState rawState = serviceMonitoringClient.getTldServiceState(tld);
+  //     // b/467541269: Expose MosApi Service Monitoring response to Cloud monitoring
+  //   } catch (MosApiException e) {
+  //     logger.atWarning().withCause(e).log("Failed to expose metrics for TLD %s.", tld);
+  //   }
+  // }
 
   private ServiceStateSummary transformToSummary(TldServiceState rawState) {
     ImmutableList<ServiceStatus> activeIncidents = ImmutableList.of();
@@ -151,7 +156,7 @@ public class MosApiStateService {
             .collect(Collectors.toList());
 
     if (!allStates.isEmpty()) {
-      // b/467541269: Expose MosApi Service Monitoring response to Cloud monitoring
+      mosApiMetrics.recordStates(allStates);
     }
   }
 }

@@ -151,4 +151,12 @@
     <service>bsa</service>
     <schedule>23 8,20 * * *</schedule>
   </task>
+  <task>
+    <url><![CDATA[/_dr/mosapi/triggerServiceState]]></url>
+    <name>triggerMosApiServiceState</name>
+    <description>
+      Fetches the service state from MosAPI and triggers the metrics status.
+    </description>
+    <schedule>*/2 * * * *</schedule>
+  </task>
 </entries>
