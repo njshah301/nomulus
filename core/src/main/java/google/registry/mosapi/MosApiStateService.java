@@ -26,8 +26,11 @@ import google.registry.mosapi.MosApiModels.ServiceStatus;
 import google.registry.mosapi.MosApiModels.TldServiceState;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
 
 /** A service that provides business logic for interacting with MoSAPI Service State. */
 public class MosApiStateService {
@@ -85,6 +88,19 @@ public class MosApiStateService {
     return new AllServicesStateResponse(summaries);
   }
 
+  /**
+   * For API: /triggerServiceState Fetches state and exposes it to Cloud Monitoring. Skips summary
+   * transformation.
+   */
+  public void triggerAndExposeMetrics(String tld) {
+    try {
+      TldServiceState rawState = serviceMonitoringClient.getTldServiceState(tld);
+      // b/467541269: Expose MosApi Service Monitoring response to Cloud monitoring
+    } catch (MosApiException e) {
+      logger.atWarning().withCause(e).log("Failed to expose metrics for TLD %s.", tld);
+    }
+  }
+
   private ServiceStateSummary transformToSummary(TldServiceState rawState) {
     ImmutableList<ServiceStatus> activeIncidents = ImmutableList.of();
     if (DOWN_STATUS.equalsIgnoreCase(rawState.status())) {
@@ -106,5 +122,36 @@ public class MosApiStateService {
               .collect(toImmutableList());
     }
     return new ServiceStateSummary(rawState.tld(), rawState.status(), activeIncidents);
+  }
+
+  /** Triggers monitoring exposure for all configured TLDs. */
+  public void triggerMetricsForAllServiceStateSummaries() {
+    ImmutableList<CompletableFuture<TldServiceState>> futures =
+        tlds.stream()
+            .map(
+                tld ->
+                    CompletableFuture.supplyAsync(
+                        () -> {
+                          try {
+                            return serviceMonitoringClient.getTldServiceState(tld);
+                          } catch (Exception e) {
+                            // Log the error but don't rethrow as RuntimeException
+                            logger.atWarning().withCause(e).log(
+                                "Failed to fetch state for TLD: %s", tld);
+                            return null; // Return null so the stream keeps moving
+                          }
+                        },
+                        tldExecutor))
+            .collect(toImmutableList());
+
+    List<TldServiceState> allStates =
+        futures.stream()
+            .map(CompletableFuture::join)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
+
+    if (!allStates.isEmpty()) {
+      // b/467541269: Expose MosApi Service Monitoring response to Cloud monitoring
+    }
   }
 }
