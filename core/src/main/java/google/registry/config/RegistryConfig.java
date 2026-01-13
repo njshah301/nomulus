@@ -1468,6 +1468,12 @@ public final class RegistryConfig {
       return config.mosapi.tldThreadCnt;
     }
 
+    @Provides
+    @Config("mosapiMetricsThreadCnt")
+    public static int provideMosapiMetricsThreads(RegistryConfigSettings config) {
+      return config.mosapi.metricsThreadCnt;
+    }
+
     private static String formatComments(String text) {
       return Splitter.on('\n').omitEmptyStrings().trimResults().splitToList(text).stream()
           .map(s -> "# " + s)

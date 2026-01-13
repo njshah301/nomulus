@@ -203,4 +203,20 @@ public final class MosApiModule {
       @Config("mosapiTldThreadCnt") int threadPoolSize) {
     return Executors.newFixedThreadPool(threadPoolSize);
   }
+
+  /**
+   * Provides a single-threaded executor for sequential metrics reporting.
+   *
+   * <p>Bound to 1 thread because the Google Cloud Monitoring exporter processes batches
+   * sequentially to respect API quotas and rate limits.
+   *
+   * @see <a href="https://cloud.google.com/monitoring/quotas">Google Cloud Monitoring Quotas</a>
+   */
+  @Provides
+  @Singleton
+  @Named("mosapiMetricsExecutor")
+  static ExecutorService provideMosapiMetricsExecutor(
+      @Config("mosapiMetricsThreadCnt") int threadPoolSize) {
+    return Executors.newFixedThreadPool(threadPoolSize);
+  }
 }

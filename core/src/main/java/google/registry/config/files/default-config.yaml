@@ -647,3 +647,9 @@ mosapi:
   # ICANN MoSAPI Specification, Section 12.3</a>
   tldThreadCnt: 4
 
+  # Metrics Reporting Thread Count
+  # Set to 1. Given the current TLD volume and the 5-minute reporting interval,
+  # a single thread provides sufficient throughput to process all metrics
+  # sequentially without backlog.
+  metricsThreadCnt: 1
+
