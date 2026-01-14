@@ -17,7 +17,9 @@ package google.registry.mosapi;
 import com.google.api.client.util.DateTime;
 import com.google.api.services.monitoring.v3.Monitoring;
 import com.google.api.services.monitoring.v3.model.CreateTimeSeriesRequest;
+import com.google.api.services.monitoring.v3.model.LabelDescriptor;
 import com.google.api.services.monitoring.v3.model.Metric;
+import com.google.api.services.monitoring.v3.model.MetricDescriptor;
 import com.google.api.services.monitoring.v3.model.MonitoredResource;
 import com.google.api.services.monitoring.v3.model.Point;
 import com.google.api.services.monitoring.v3.model.TimeInterval;
@@ -33,6 +35,7 @@ import google.registry.mosapi.MosApiModels.ServiceStatus;
 import google.registry.mosapi.MosApiModels.TldServiceState;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -41,6 +44,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 /** Metrics Exporter for MoSAPI. */
+@Singleton
 public class MosApiMetrics {
 
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
@@ -61,6 +65,22 @@ public class MosApiMetrics {
   private static final String METRIC_SERVICE_STATUS = "service_status";
   private static final String METRIC_EMERGENCY_USAGE = "emergency_usage";
 
+  // Metric Display Names & Descriptions
+  private static final String DISPLAY_NAME_TLD_STATUS =
+      "Health of TLDs. 1 = UP, 0 = DOWN,  2= DISABLED/NOT_MONITORED";
+  private static final String DESC_TLD_STATUS = "Overall Health of TLDs reported from ICANN";
+
+  private static final String DISPLAY_NAME_SERVICE_STATUS =
+      "Health of Services. 1 = UP, 0 = DOWN,  2= DISABLED/NOT_MONITORED";
+  private static final String DESC_SERVICE_STATUS =
+      "Overall Health of Services reported from ICANN";
+
+  private static final String DISPLAY_NAME_EMERGENCY_USAGE =
+      "Percentage of Emergency Threshold Consumed";
+  private static final String DESC_EMERGENCY_USAGE =
+      "Downtime threshold that if reached by any of the monitored Services may cause the TLDs"
+          + " Services emergency transition to an interim Registry Operator";
+
   // MoSAPI Status Constants
   private static final String STATUS_UP_INCONCLUSIVE = "UP-INCONCLUSIVE";
   private static final String STATUS_DOWN = "DOWN";
@@ -78,6 +98,87 @@ public class MosApiMetrics {
     this.monitoringClient = monitoringClient;
     this.projectId = projectId;
     this.executor = executor;
+
+    // Initialize Metric Descriptors once on startup
+    ensureMetricDescriptors();
+  }
+
+  // Defines the custom metrics in Cloud Monitoring
+  private void ensureMetricDescriptors() {
+    executor.execute(
+        () -> {
+          try {
+            String projectName = PROJECT_RESOURCE_PREFIX + projectId;
+
+            // 1. TLD Status Descriptor
+            createMetricDescriptor(
+                projectName,
+                METRIC_TLD_STATUS,
+                DISPLAY_NAME_TLD_STATUS,
+                DESC_TLD_STATUS,
+                "GAUGE",
+                "INT64",
+                ImmutableList.of(LABEL_TLD));
+
+            // 2. Service Status Descriptor
+            createMetricDescriptor(
+                projectName,
+                METRIC_SERVICE_STATUS,
+                DISPLAY_NAME_SERVICE_STATUS,
+                DESC_SERVICE_STATUS,
+                "GAUGE",
+                "INT64",
+                ImmutableList.of(LABEL_TLD, LABEL_SERVICE_TYPE));
+
+            // 3. Emergency Usage Descriptor
+            createMetricDescriptor(
+                projectName,
+                METRIC_EMERGENCY_USAGE,
+                DISPLAY_NAME_EMERGENCY_USAGE,
+                DESC_EMERGENCY_USAGE,
+                "GAUGE",
+                "DOUBLE",
+                ImmutableList.of(LABEL_TLD, LABEL_SERVICE_TYPE));
+
+            logger.atInfo().log("Metric descriptors ensured for project %s", projectId);
+          } catch (Exception e) {
+            logger.atWarning().withCause(e).log(
+                "Failed to create metric descriptors (they may already exist).");
+          }
+        });
+  }
+
+  private void createMetricDescriptor(
+      String projectName,
+      String metricTypeSuffix,
+      String displayName,
+      String description,
+      String metricKind,
+      String valueType,
+      List<String> labelKeys)
+      throws IOException {
+
+    List<LabelDescriptor> labelDescriptors = new ArrayList<>();
+    for (String key : labelKeys) {
+      LabelDescriptor ld =
+          new LabelDescriptor()
+              .setKey(key)
+              .setValueType("STRING")
+              .setDescription(
+                  key.equals(LABEL_TLD) ? "The TLD being monitored" : "The type of service");
+      labelDescriptors.add(ld);
+    }
+
+    MetricDescriptor descriptor =
+        new MetricDescriptor()
+            .setType(METRIC_DOMAIN + metricTypeSuffix)
+            .setMetricKind(metricKind)
+            .setValueType(valueType)
+            .setDisplayName(displayName)
+            .setDescription(description)
+            .setLabels(labelDescriptors);
+
+    monitoringClient.projects().metricDescriptors().create(projectName, descriptor).execute();
   }
 
   /** Accepts a list of states and processes them in a single async batch task. */

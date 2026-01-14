@@ -24,6 +24,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.api.services.monitoring.v3.Monitoring;
 import com.google.api.services.monitoring.v3.model.CreateTimeSeriesRequest;
+import com.google.api.services.monitoring.v3.model.MetricDescriptor;
 import com.google.api.services.monitoring.v3.model.TimeSeries; // This is the model data class
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -47,6 +48,12 @@ public class MosApiMetricsTest {
   private final Monitoring.Projects.TimeSeries.Create createRequest =
       mock(Monitoring.Projects.TimeSeries.Create.class);
 
+  // Mocks for Metric Descriptors
+  private final Monitoring.Projects.MetricDescriptors metricDescriptorsResource =
+      mock(Monitoring.Projects.MetricDescriptors.class);
+  private final Monitoring.Projects.MetricDescriptors.Create createDescriptorRequest =
+      mock(Monitoring.Projects.MetricDescriptors.Create.class);
+
   private MosApiMetrics mosApiMetrics;
 
   @BeforeEach
@@ -56,8 +63,51 @@ public class MosApiMetricsTest {
     when(timeSeriesResource.create(anyString(), any(CreateTimeSeriesRequest.class)))
         .thenReturn(createRequest);
 
+    // Setup for Metric Descriptors
+    when(projects.metricDescriptors()).thenReturn(metricDescriptorsResource);
+    when(metricDescriptorsResource.create(anyString(), any(MetricDescriptor.class)))
+        .thenReturn(createDescriptorRequest);
+
     mosApiMetrics =
         new MosApiMetrics(monitoringClient, PROJECT_ID, MoreExecutors.newDirectExecutorService());
+  }
+
+  @Test
+  void testConstructor_initializesMetricDescriptors() throws IOException {
+    ArgumentCaptor<MetricDescriptor> captor = ArgumentCaptor.forClass(MetricDescriptor.class);
+
+    // Verify that create was called 3 times (once for each metric)
+    verify(metricDescriptorsResource, times(3))
+        .create(eq("projects/" + PROJECT_ID), captor.capture());
+
+    List<MetricDescriptor> descriptors = captor.getAllValues();
+
+    // Verify TLD Status Descriptor
+    MetricDescriptor tldStatus =
+        descriptors.stream()
+            .filter(d -> d.getType().endsWith("tld_status"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(tldStatus.getMetricKind()).isEqualTo("GAUGE");
+    assertThat(tldStatus.getValueType()).isEqualTo("INT64");
+
+    // Verify Service Status Descriptor
+    MetricDescriptor serviceStatus =
+        descriptors.stream()
+            .filter(d -> d.getType().endsWith("service_status"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(serviceStatus.getMetricKind()).isEqualTo("GAUGE");
+    assertThat(serviceStatus.getValueType()).isEqualTo("INT64");
+
+    // Verify Emergency Usage Descriptor
+    MetricDescriptor emergencyUsage =
+        descriptors.stream()
+            .filter(d -> d.getType().endsWith("emergency_usage"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(emergencyUsage.getMetricKind()).isEqualTo("GAUGE");
+    assertThat(emergencyUsage.getValueType()).isEqualTo("DOUBLE");
   }
 
   @Test
