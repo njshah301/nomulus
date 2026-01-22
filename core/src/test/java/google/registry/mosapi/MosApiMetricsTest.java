@@ -25,19 +25,21 @@ import static org.mockito.Mockito.when;
 import com.google.api.services.monitoring.v3.Monitoring;
 import com.google.api.services.monitoring.v3.model.CreateTimeSeriesRequest;
 import com.google.api.services.monitoring.v3.model.MetricDescriptor;
-import com.google.api.services.monitoring.v3.model.TimeSeries; // This is the model data class
+import com.google.api.services.monitoring.v3.model.TimeSeries;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.MoreExecutors;
 import google.registry.mosapi.MosApiModels.ServiceStatus;
 import google.registry.mosapi.MosApiModels.TldServiceState;
+import google.registry.testing.FakeClock;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
+import org.joda.time.DateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+/** Unit tests for {@link MosApiMetrics}. */
 public class MosApiMetricsTest {
   private static final String PROJECT_ID = "domain-registry-test";
 
@@ -54,6 +56,8 @@ public class MosApiMetricsTest {
   private final Monitoring.Projects.MetricDescriptors.Create createDescriptorRequest =
       mock(Monitoring.Projects.MetricDescriptors.Create.class);
 
+  // Fixed Clock for deterministic testing
+  private final FakeClock clock = new FakeClock(DateTime.parse("2026-01-01T12:00:00Z"));
   private MosApiMetrics mosApiMetrics;
 
   @BeforeEach
@@ -69,14 +73,18 @@ public class MosApiMetricsTest {
         .thenReturn(createDescriptorRequest);
 
     mosApiMetrics =
-        new MosApiMetrics(monitoringClient, PROJECT_ID, MoreExecutors.newDirectExecutorService());
+        new MosApiMetrics(
+            monitoringClient, PROJECT_ID, clock, MoreExecutors.newDirectExecutorService());
   }
 
   @Test
-  void testConstructor_initializesMetricDescriptors() throws IOException {
+  void testRecordStates_lazilyInitializesMetricDescriptors() throws IOException {
+    TldServiceState state = createTldState("test.tld", "UP", "UP");
+
+    mosApiMetrics.recordStates(ImmutableList.of(state));
+
     ArgumentCaptor<MetricDescriptor> captor = ArgumentCaptor.forClass(MetricDescriptor.class);
 
-    // Verify that create was called 3 times (once for each metric)
     verify(metricDescriptorsResource, times(3))
         .create(eq("projects/" + PROJECT_ID), captor.capture());
 
@@ -139,11 +147,10 @@ public class MosApiMetricsTest {
   @Test
   void testRecordStates_partitionsTimeSeries_atLimit() throws IOException {
 
-    List<TldServiceState> largeBatch = new ArrayList<>();
-    for (int i = 0; i < 70; i++) {
-      largeBatch.add(createTldState("tld-" + i, "UP", "UP"));
-    }
-
+    ImmutableList<TldServiceState> largeBatch =
+        java.util.stream.IntStream.range(0, 70)
+            .mapToObj(i -> createTldState("tld-" + i, "UP", "UP"))
+            .collect(ImmutableList.toImmutableList());
     mosApiMetrics.recordStates(largeBatch);
 
     verify(timeSeriesResource, times(2))
@@ -166,6 +173,9 @@ public class MosApiMetricsTest {
 
     assertThat(ts.getResource().getType()).isEqualTo("global");
     assertThat(ts.getResource().getLabels()).containsEntry("project_id", PROJECT_ID);
+
+    // Verify that the interval matches our fixed clock
+    assertThat(ts.getPoints().get(0).getInterval().getEndTime()).isEqualTo("2026-01-01T12:00:00Z");
   }
 
   /** Extracts the numeric value for a specific TLD and metric type from a list of TimeSeries. */

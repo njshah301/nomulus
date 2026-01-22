@@ -648,8 +648,8 @@ mosapi:
   tldThreadCnt: 4
 
   # Metrics Reporting Thread Count
-  # Set to 1. Given the current TLD volume and the 5-minute reporting interval,
-  # a single thread provides sufficient throughput to process all metrics
-  # sequentially without backlog.
-  metricsThreadCnt: 1
+  # Defaults to 1. This field determines the number of threads used to report
+  # metrics to Cloud Monitoring. For most deployments, a single thread is
+  # sufficient to process all metrics sequentially within the reporting interval
+  metricsThreadCount: 1
 
