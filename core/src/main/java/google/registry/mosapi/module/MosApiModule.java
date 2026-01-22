@@ -205,10 +205,11 @@ public final class MosApiModule {
   }
 
   /**
-   * Provides a single-threaded executor for sequential metrics reporting.
+   * Provides executor for metrics reporting.
    *
-   * <p>Bound to 1 thread because the Google Cloud Monitoring exporter processes batches
-   * sequentially to respect API quotas and rate limits.
+   * <p>We should use a single thread to ensure metric batches are sent sequentially. This acts as a
+   * client-side rate limiter to avoid exceeding Google Cloud Monitoring API quotas (requests per
+   * second).
    *
    * @see <a href="https://cloud.google.com/monitoring/quotas">Google Cloud Monitoring Quotas</a>
    */
@@ -216,7 +217,7 @@ public final class MosApiModule {
   @Singleton
   @Named("mosapiMetricsExecutor")
   static ExecutorService provideMosapiMetricsExecutor(
-      @Config("mosapiMetricsThreadCnt") int threadPoolSize) {
+      @Config("mosapiMetricsThreadCount") int threadPoolSize) {
     return Executors.newFixedThreadPool(threadPoolSize);
   }
 }

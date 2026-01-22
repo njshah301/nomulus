@@ -14,7 +14,9 @@
 
 package google.registry.mosapi;
 
-import com.google.api.client.util.DateTime;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.services.monitoring.v3.Monitoring;
 import com.google.api.services.monitoring.v3.model.CreateTimeSeriesRequest;
 import com.google.api.services.monitoring.v3.model.LabelDescriptor;
@@ -33,15 +35,16 @@ import com.google.common.flogger.FluentLogger;
 import google.registry.config.RegistryConfig.Config;
 import google.registry.mosapi.MosApiModels.ServiceStatus;
 import google.registry.mosapi.MosApiModels.TldServiceState;
+import google.registry.util.Clock;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 
 /** Metrics Exporter for MoSAPI. */
 @Singleton
@@ -51,6 +54,8 @@ public class MosApiMetrics {
 
   // Google Cloud Monitoring Limit: Max 200 TimeSeries per request
   private static final int MAX_TIMESERIES_PER_REQUEST = 195;
+
+  private static final int METRICS_ALREADY_EXIST = 409;
 
   // Magic String Constants
   private static final String METRIC_DOMAIN = "custom.googleapis.com/mosapi/";
@@ -88,63 +93,66 @@ public class MosApiMetrics {
 
   private final Monitoring monitoringClient;
   private final String projectId;
+  private final Clock clock;
+  private final MonitoredResource monitoredResource;
   private final ExecutorService executor;
+  // Flag to ensure we only create descriptors once, lazily
+  private final AtomicBoolean isDescriptorInitialized = new AtomicBoolean(false);
 
   @Inject
   public MosApiMetrics(
       Monitoring monitoringClient,
       @Config("projectId") String projectId,
+      Clock clock,
       @Named("mosapiMetricsExecutor") ExecutorService executor) {
     this.monitoringClient = monitoringClient;
     this.projectId = projectId;
+    this.clock = clock;
     this.executor = executor;
 
-    // Initialize Metric Descriptors once on startup
-    ensureMetricDescriptors();
+    this.monitoredResource =
+        new MonitoredResource()
+            .setType(RESOURCE_TYPE_GLOBAL)
+            .setLabels(ImmutableMap.of(LABEL_PROJECT_ID, projectId));
   }
 
   // Defines the custom metrics in Cloud Monitoring
   private void ensureMetricDescriptors() {
     executor.execute(
         () -> {
-          try {
-            String projectName = PROJECT_RESOURCE_PREFIX + projectId;
+          String projectName = PROJECT_RESOURCE_PREFIX + projectId;
 
-            // 1. TLD Status Descriptor
-            createMetricDescriptor(
-                projectName,
-                METRIC_TLD_STATUS,
-                DISPLAY_NAME_TLD_STATUS,
-                DESC_TLD_STATUS,
-                "GAUGE",
-                "INT64",
-                ImmutableList.of(LABEL_TLD));
+          // 1. TLD Status Descriptor
+          createMetricDescriptor(
+              projectName,
+              METRIC_TLD_STATUS,
+              DISPLAY_NAME_TLD_STATUS,
+              DESC_TLD_STATUS,
+              "GAUGE",
+              "INT64",
+              ImmutableList.of(LABEL_TLD));
 
-            // 2. Service Status Descriptor
-            createMetricDescriptor(
-                projectName,
-                METRIC_SERVICE_STATUS,
-                DISPLAY_NAME_SERVICE_STATUS,
-                DESC_SERVICE_STATUS,
-                "GAUGE",
-                "INT64",
-                ImmutableList.of(LABEL_TLD, LABEL_SERVICE_TYPE));
+          // 2. Service Status Descriptor
+          createMetricDescriptor(
+              projectName,
+              METRIC_SERVICE_STATUS,
+              DISPLAY_NAME_SERVICE_STATUS,
+              DESC_SERVICE_STATUS,
+              "GAUGE",
+              "INT64",
+              ImmutableList.of(LABEL_TLD, LABEL_SERVICE_TYPE));
 
-            // 3. Emergency Usage Descriptor
-            createMetricDescriptor(
-                projectName,
-                METRIC_EMERGENCY_USAGE,
-                DISPLAY_NAME_EMERGENCY_USAGE,
-                DESC_EMERGENCY_USAGE,
-                "GAUGE",
-                "DOUBLE",
-                ImmutableList.of(LABEL_TLD, LABEL_SERVICE_TYPE));
+          // 3. Emergency Usage Descriptor
+          createMetricDescriptor(
+              projectName,
+              METRIC_EMERGENCY_USAGE,
+              DISPLAY_NAME_EMERGENCY_USAGE,
+              DESC_EMERGENCY_USAGE,
+              "GAUGE",
+              "DOUBLE",
+              ImmutableList.of(LABEL_TLD, LABEL_SERVICE_TYPE));
 
-            logger.atInfo().log("Metric descriptors ensured for project %s", projectId);
-          } catch (Exception e) {
-            logger.atWarning().withCause(e).log(
-                "Failed to create metric descriptors (they may already exist).");
-          }
+          logger.atInfo().log("Metric descriptors ensured for project %s", projectId);
         });
   }
 
@@ -155,88 +163,113 @@ public class MosApiMetrics {
       String description,
       String metricKind,
       String valueType,
-      List<String> labelKeys)
-      throws IOException {
+      ImmutableList<String> labelKeys) {
+    try {
+      ImmutableList<LabelDescriptor> labelDescriptors =
+          labelKeys.stream()
+              .map(
+                  key ->
+                      new LabelDescriptor()
+                          .setKey(key)
+                          .setValueType("STRING")
+                          .setDescription(
+                              key.equals(LABEL_TLD)
+                                  ? "The TLD being monitored"
+                                  : "The type of service"))
+              .collect(toImmutableList());
 
-    List<LabelDescriptor> labelDescriptors = new ArrayList<>();
-    for (String key : labelKeys) {
-      LabelDescriptor ld =
-          new LabelDescriptor()
-              .setKey(key)
-              .setValueType("STRING")
-              .setDescription(
-                  key.equals(LABEL_TLD) ? "The TLD being monitored" : "The type of service");
-      labelDescriptors.add(ld);
+      MetricDescriptor descriptor =
+          new MetricDescriptor()
+              .setType(METRIC_DOMAIN + metricTypeSuffix)
+              .setMetricKind(metricKind)
+              .setValueType(valueType)
+              .setDisplayName(displayName)
+              .setDescription(description)
+              .setLabels(labelDescriptors);
+
+      monitoringClient.projects().metricDescriptors().create(projectName, descriptor).execute();
+    } catch (GoogleJsonResponseException e) {
+      if (e.getStatusCode() == METRICS_ALREADY_EXIST) {
+        // the metric already exists. This is expected.
+        logger.atFine().log("Metric descriptor %s already exists.", metricTypeSuffix);
+      } else {
+        logger.atWarning().withCause(e).log(
+            "Failed to create metric descriptor %s. Status: %d",
+            metricTypeSuffix, e.getStatusCode());
+      }
+    } catch (Exception e) {
+      logger.atWarning().withCause(e).log(
+          "Unexpected error creating metric descriptor %s.", metricTypeSuffix);
     }
-
-    MetricDescriptor descriptor =
-        new MetricDescriptor()
-            .setType(METRIC_DOMAIN + metricTypeSuffix)
-            .setMetricKind(metricKind)
-            .setValueType(valueType)
-            .setDisplayName(displayName)
-            .setDescription(description)
-            .setLabels(labelDescriptors);
-
-    monitoringClient.projects().metricDescriptors().create(projectName, descriptor).execute();
   }
 
   /** Accepts a list of states and processes them in a single async batch task. */
-  public void recordStates(List<TldServiceState> states) {
+  public void recordStates(ImmutableList<TldServiceState> states) {
+    // If this is the first time we are recording, ensure descriptors exist.
+    // Using compareAndSet ensures this runs exactly once.
+    if (isDescriptorInitialized.compareAndSet(false, true)) {
+      ensureMetricDescriptors();
+    }
     executor.execute(
         () -> {
           try {
             pushBatchMetrics(states);
-          } catch (Throwable t) {
-            logger.atWarning().withCause(t).log("Async batch metric push failed.");
+          } catch (Exception e) {
+            logger.atWarning().withCause(e).log("Async batch metric push failed.");
           }
         });
   }
 
-  private void pushBatchMetrics(List<TldServiceState> states) throws IOException {
-    List<TimeSeries> allTimeSeries = new ArrayList<>();
-    TimeInterval interval =
-        new TimeInterval().setEndTime(new DateTime(System.currentTimeMillis()).toString());
-
-    for (TldServiceState state : states) {
-      // 1. TLD Status Metric
-      allTimeSeries.add(createTldStatusTimeSeries(state, interval));
-
-      // 2. Service-level Metrics
-      Map<String, ServiceStatus> services = state.serviceStatuses();
-      if (services != null) {
-        for (Map.Entry<String, ServiceStatus> entry : services.entrySet()) {
-          addServiceMetrics(allTimeSeries, state.tld(), entry.getKey(), entry.getValue(), interval);
-        }
-      }
-    }
+  private void pushBatchMetrics(ImmutableList<TldServiceState> states) {
+    Instant now = Instant.ofEpochMilli(clock.nowUtc().getMillis());
+    TimeInterval interval = new TimeInterval().setEndTime(now.toString());
+    ImmutableList<TimeSeries> allTimeSeries =
+        states.stream()
+            .flatMap(state -> createMetricsForState(state, interval))
+            .collect(toImmutableList());
 
     for (List<TimeSeries> chunk : Lists.partition(allTimeSeries, MAX_TIMESERIES_PER_REQUEST)) {
-      CreateTimeSeriesRequest request = new CreateTimeSeriesRequest().setTimeSeries(chunk);
-      monitoringClient
-          .projects()
-          .timeSeries()
-          .create(PROJECT_RESOURCE_PREFIX + projectId, request)
-          .execute();
-      logger.atInfo().log(
-          "Successfully pushed batch of %d time series to Cloud Monitoring.", chunk.size());
+      try {
+        CreateTimeSeriesRequest request = new CreateTimeSeriesRequest().setTimeSeries(chunk);
+        monitoringClient
+            .projects()
+            .timeSeries()
+            .create(PROJECT_RESOURCE_PREFIX + projectId, request)
+            .execute();
+        logger.atInfo().log(
+            "Successfully pushed batch of %d time series to Cloud Monitoring.", chunk.size());
+      } catch (IOException e) {
+        logger.atWarning().withCause(e).log(
+            "Failed to push batch of %d time series to Cloud Monitoring. Proceeding to next batch.",
+            chunk.size());
+      }
     }
   }
 
-  private void addServiceMetrics(
-      List<TimeSeries> list,
-      String tld,
-      String serviceType,
-      ServiceStatus statusObj,
-      TimeInterval interval) {
+  /** Generates all TimeSeries (TLD + Services) for a single state object. */
+  private Stream<TimeSeries> createMetricsForState(TldServiceState state, TimeInterval interval) {
+    // 1. TLD Status
+    Stream<TimeSeries> tldStream = Stream.of(createTldStatusTimeSeries(state, interval));
+
+    // 2. Service Metrics (if any)
+    Stream<TimeSeries> serviceStream =
+        state.serviceStatuses().entrySet().stream()
+            .flatMap(
+                entry ->
+                    createServiceMetricsStream(
+                        state.tld(), entry.getKey(), entry.getValue(), interval));
+
+    return Stream.concat(tldStream, serviceStream);
+  }
+
+  private Stream<TimeSeries> createServiceMetricsStream(
+      String tld, String serviceType, ServiceStatus statusObj, TimeInterval interval) {
     ImmutableMap<String, String> labels =
         ImmutableMap.of(LABEL_TLD, tld, LABEL_SERVICE_TYPE, serviceType);
 
-    list.add(
+    return Stream.of(
         createTimeSeries(
-            METRIC_SERVICE_STATUS, labels, parseServiceStatus(statusObj.status()), interval));
-
-    list.add(
+            METRIC_SERVICE_STATUS, labels, parseServiceStatus(statusObj.status()), interval),
         createTimeSeries(METRIC_EMERGENCY_USAGE, labels, statusObj.emergencyThreshold(), interval));
   }
 
@@ -249,12 +282,8 @@ public class MosApiMetrics {
   }
 
   private TimeSeries createTimeSeries(
-      String suffix, Map<String, String> labels, Number val, TimeInterval interval) {
+      String suffix, ImmutableMap<String, String> labels, Number val, TimeInterval interval) {
     Metric metric = new Metric().setType(METRIC_DOMAIN + suffix).setLabels(labels);
-    MonitoredResource resource =
-        new MonitoredResource()
-            .setType(RESOURCE_TYPE_GLOBAL)
-            .setLabels(Collections.singletonMap(LABEL_PROJECT_ID, projectId));
 
     TypedValue tv = new TypedValue();
     if (val instanceof Double) {
@@ -265,7 +294,7 @@ public class MosApiMetrics {
 
     return new TimeSeries()
         .setMetric(metric)
-        .setResource(resource)
+        .setResource(this.monitoredResource)
         .setPoints(ImmutableList.of(new Point().setInterval(interval).setValue(tv)));
   }
 
@@ -282,9 +311,6 @@ public class MosApiMetrics {
    * @see <a href="https://www.icann.org/mosapi-specification.pdf">ICANN MoSAPI Spec Sec 5.1</a>
    */
   private long parseTldStatus(String status) {
-    if (status == null) {
-      return 1;
-    }
     return switch (Ascii.toUpperCase(status)) {
       case STATUS_DOWN -> 0;
       case STATUS_UP_INCONCLUSIVE -> 2;
@@ -301,9 +327,6 @@ public class MosApiMetrics {
    * @see <a href="https://www.icann.org/mosapi-specification.pdf">ICANN MoSAPI Spec Sec 5.1</a>
    */
   private long parseServiceStatus(String status) {
-    if (status == null) {
-      return 1;
-    }
     String serviceStatus = Ascii.toUpperCase(status);
     if (serviceStatus.startsWith(STATUS_UP_INCONCLUSIVE)) {
       return 2;
