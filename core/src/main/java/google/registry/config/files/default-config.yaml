@@ -645,11 +645,5 @@ mosapi:
   # Provides a fixed thread pool for parallel TLD processing.
   # @see <a href="https://www.icann.org/mosapi-specification.pdf">
   # ICANN MoSAPI Specification, Section 12.3</a>
-  tldThreadCnt: 4
-
-  # Metrics Reporting Thread Count
-  # Defaults to 1. This field determines the number of threads used to report
-  # metrics to Cloud Monitoring. For most deployments, a single thread is
-  # sufficient to process all metrics sequentially within the reporting interval
-  metricsThreadCount: 1
+  tldThreadCount: 4
 

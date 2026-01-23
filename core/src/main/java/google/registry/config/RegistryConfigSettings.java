@@ -272,7 +272,6 @@ public class RegistryConfigSettings {
     public String entityType;
     public List<String> tlds;
     public List<String> services;
-    public int tldThreadCnt;
-    public int metricsThreadCount;
+    public int tldThreadCount;
   }
 }

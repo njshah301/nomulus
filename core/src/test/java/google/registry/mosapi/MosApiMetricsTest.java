@@ -142,6 +142,14 @@ public class MosApiMetricsTest {
     assertThat(getValueFor(pushedSeries, "tld-up", "service_status")).isEqualTo(1);
     assertThat(getValueFor(pushedSeries, "tld-down", "service_status")).isEqualTo(0);
     assertThat(getValueFor(pushedSeries, "tld-maint", "service_status")).isEqualTo(2);
+
+    // 3. Verify Emergency Usage (DOUBLE)
+    assertThat(getValueFor(pushedSeries, "tld-up", "emergency_usage").doubleValue())
+        .isEqualTo(50.0);
+    assertThat(getValueFor(pushedSeries, "tld-down", "emergency_usage").doubleValue())
+        .isEqualTo(50.0);
+    assertThat(getValueFor(pushedSeries, "tld-maint", "emergency_usage").doubleValue())
+        .isEqualTo(50.0);
   }
 
   @Test
@@ -179,13 +187,21 @@ public class MosApiMetricsTest {
   }
 
   /** Extracts the numeric value for a specific TLD and metric type from a list of TimeSeries. */
-  private long getValueFor(List<TimeSeries> seriesList, String tld, String metricSuffix) {
+  private Number getValueFor(List<TimeSeries> seriesList, String tld, String metricSuffix) {
     String fullMetric = "custom.googleapis.com/mosapi/" + metricSuffix;
     return seriesList.stream()
         .filter(ts -> tld.equals(ts.getMetric().getLabels().get("tld")))
         .filter(ts -> ts.getMetric().getType().equals(fullMetric))
         .findFirst()
-        .map(ts -> ts.getPoints().get(0).getValue().getInt64Value())
+        .map(
+            ts -> {
+              Double dVal = ts.getPoints().get(0).getValue().getDoubleValue();
+              if (dVal != null) {
+                return (Number) dVal;
+              }
+              // Fallback to Int64.
+              return (Number) ts.getPoints().get(0).getValue().getInt64Value();
+            })
         .orElseThrow(
             () ->
                 new AssertionError(

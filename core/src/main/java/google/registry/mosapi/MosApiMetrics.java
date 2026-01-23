@@ -30,7 +30,7 @@ import com.google.api.services.monitoring.v3.model.TypedValue;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
+import com.google.common.collect.Iterators;
 import com.google.common.flogger.FluentLogger;
 import google.registry.config.RegistryConfig.Config;
 import google.registry.mosapi.MosApiModels.ServiceStatus;
@@ -41,6 +41,7 @@ import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -93,6 +94,7 @@ public class MosApiMetrics {
 
   private final Monitoring monitoringClient;
   private final String projectId;
+  private final String projectName;
   private final Clock clock;
   private final MonitoredResource monitoredResource;
   private final ExecutorService executor;
@@ -110,21 +112,36 @@ public class MosApiMetrics {
     this.clock = clock;
     this.executor = executor;
 
+    this.projectName = PROJECT_RESOURCE_PREFIX + projectId;
+
     this.monitoredResource =
         new MonitoredResource()
             .setType(RESOURCE_TYPE_GLOBAL)
             .setLabels(ImmutableMap.of(LABEL_PROJECT_ID, projectId));
   }
 
-  // Defines the custom metrics in Cloud Monitoring
-  private void ensureMetricDescriptors() {
+  /** Accepts a list of states and processes them in a single async batch task. */
+  public void recordStates(ImmutableList<TldServiceState> states) {
+    // If this is the first time we are recording, ensure descriptors exist.
+    if (isDescriptorInitialized.compareAndSet(false, true)) {
+      createCustomMetricDescriptors();
+    }
     executor.execute(
         () -> {
-          String projectName = PROJECT_RESOURCE_PREFIX + projectId;
+          try {
+            pushBatchMetrics(states);
+          } catch (Exception e) {
+            logger.atSevere().withCause(e).log("Async batch metric push failed.");
+          }
+        });
+  }
 
+  // Defines the custom metrics in Cloud Monitoring
+  private void createCustomMetricDescriptors() {
+    executor.execute(
+        () -> {
           // 1. TLD Status Descriptor
           createMetricDescriptor(
-              projectName,
               METRIC_TLD_STATUS,
               DISPLAY_NAME_TLD_STATUS,
               DESC_TLD_STATUS,
@@ -134,7 +151,6 @@ public class MosApiMetrics {
 
           // 2. Service Status Descriptor
           createMetricDescriptor(
-              projectName,
               METRIC_SERVICE_STATUS,
               DISPLAY_NAME_SERVICE_STATUS,
               DESC_SERVICE_STATUS,
@@ -144,7 +160,6 @@ public class MosApiMetrics {
 
           // 3. Emergency Usage Descriptor
           createMetricDescriptor(
-              projectName,
               METRIC_EMERGENCY_USAGE,
               DISPLAY_NAME_EMERGENCY_USAGE,
               DESC_EMERGENCY_USAGE,
@@ -157,37 +172,40 @@ public class MosApiMetrics {
   }
 
   private void createMetricDescriptor(
-      String projectName,
       String metricTypeSuffix,
       String displayName,
       String description,
       String metricKind,
       String valueType,
       ImmutableList<String> labelKeys) {
+
+    ImmutableList<LabelDescriptor> labelDescriptors =
+        labelKeys.stream()
+            .map(
+                key ->
+                    new LabelDescriptor()
+                        .setKey(key)
+                        .setValueType("STRING")
+                        .setDescription(
+                            key.equals(LABEL_TLD)
+                                ? "The TLD being monitored"
+                                : "The type of service"))
+            .collect(toImmutableList());
+
+    MetricDescriptor descriptor =
+        new MetricDescriptor()
+            .setType(METRIC_DOMAIN + metricTypeSuffix)
+            .setMetricKind(metricKind)
+            .setValueType(valueType)
+            .setDisplayName(displayName)
+            .setDescription(description)
+            .setLabels(labelDescriptors);
     try {
-      ImmutableList<LabelDescriptor> labelDescriptors =
-          labelKeys.stream()
-              .map(
-                  key ->
-                      new LabelDescriptor()
-                          .setKey(key)
-                          .setValueType("STRING")
-                          .setDescription(
-                              key.equals(LABEL_TLD)
-                                  ? "The TLD being monitored"
-                                  : "The type of service"))
-              .collect(toImmutableList());
-
-      MetricDescriptor descriptor =
-          new MetricDescriptor()
-              .setType(METRIC_DOMAIN + metricTypeSuffix)
-              .setMetricKind(metricKind)
-              .setValueType(valueType)
-              .setDisplayName(displayName)
-              .setDescription(description)
-              .setLabels(labelDescriptors);
-
-      monitoringClient.projects().metricDescriptors().create(projectName, descriptor).execute();
+      monitoringClient
+          .projects()
+          .metricDescriptors()
+          .create(this.projectName, descriptor)
+          .execute();
     } catch (GoogleJsonResponseException e) {
       if (e.getStatusCode() == METRICS_ALREADY_EXIST) {
         // the metric already exists. This is expected.
@@ -203,45 +221,42 @@ public class MosApiMetrics {
     }
   }
 
-  /** Accepts a list of states and processes them in a single async batch task. */
-  public void recordStates(ImmutableList<TldServiceState> states) {
-    // If this is the first time we are recording, ensure descriptors exist.
-    if (isDescriptorInitialized.compareAndSet(false, true)) {
-      ensureMetricDescriptors();
-    }
-    executor.execute(
-        () -> {
-          try {
-            pushBatchMetrics(states);
-          } catch (Exception e) {
-            logger.atWarning().withCause(e).log("Async batch metric push failed.");
-          }
-        });
-  }
-
   private void pushBatchMetrics(ImmutableList<TldServiceState> states) {
     Instant now = Instant.ofEpochMilli(clock.nowUtc().getMillis());
     TimeInterval interval = new TimeInterval().setEndTime(now.toString());
-    ImmutableList<TimeSeries> allTimeSeries =
-        states.stream()
-            .flatMap(state -> createMetricsForState(state, interval))
-            .collect(toImmutableList());
+    Stream<TimeSeries> allTimeSeriesStream =
+        states.stream().flatMap(state -> createMetricsForState(state, interval));
 
-    for (List<TimeSeries> chunk : Lists.partition(allTimeSeries, MAX_TIMESERIES_PER_REQUEST)) {
+    Iterator<List<TimeSeries>> batchIterator =
+        Iterators.partition(allTimeSeriesStream.iterator(), MAX_TIMESERIES_PER_REQUEST);
+
+    int successCount = 0;
+    int failureCount = 0;
+
+    // Iterate and count
+    while (batchIterator.hasNext()) {
+      List<TimeSeries> batch = batchIterator.next();
       try {
-        CreateTimeSeriesRequest request = new CreateTimeSeriesRequest().setTimeSeries(chunk);
-        monitoringClient
-            .projects()
-            .timeSeries()
-            .create(PROJECT_RESOURCE_PREFIX + projectId, request)
-            .execute();
-        logger.atInfo().log(
-            "Successfully pushed batch of %d time series to Cloud Monitoring.", chunk.size());
+        CreateTimeSeriesRequest request = new CreateTimeSeriesRequest().setTimeSeries(batch);
+        monitoringClient.projects().timeSeries().create(this.projectName, request).execute();
+
+        successCount++;
+
       } catch (IOException e) {
+        failureCount++;
+        // Log individual batch failures, so we have the stack trace for debugging
         logger.atWarning().withCause(e).log(
-            "Failed to push batch of %d time series to Cloud Monitoring. Proceeding to next batch.",
-            chunk.size());
+            "Failed to push batch of %d time series.", batch.size());
       }
+    }
+
+    // 4. Log the final summary
+    if (failureCount > 0) {
+      logger.atWarning().log(
+          "Metric push finished with errors. Batches Succeeded: %d, Failed: %d",
+          successCount, failureCount);
+    } else {
+      logger.atInfo().log("Metric push finished successfully. Batches Succeeded: %d", successCount);
     }
   }
 
