@@ -120,7 +120,6 @@ public class MosApiMetricsTest {
 
   @Test
   void testRecordStates_mapsStatusesToCorrectValues() throws IOException {
-
     TldServiceState stateUp = createTldState("tld-up", "UP", "UP");
     TldServiceState stateDown = createTldState("tld-down", "DOWN", "DOWN");
     TldServiceState stateMaint = createTldState("tld-maint", "UP-INCONCLUSIVE", "DISABLED");
@@ -154,7 +153,6 @@ public class MosApiMetricsTest {
 
   @Test
   void testRecordStates_partitionsTimeSeries_atLimit() throws IOException {
-
     ImmutableList<TldServiceState> largeBatch =
         java.util.stream.IntStream.range(0, 70)
             .mapToObj(i -> createTldState("tld-" + i, "UP", "UP"))
@@ -202,10 +200,7 @@ public class MosApiMetricsTest {
               // Fallback to Int64.
               return (Number) ts.getPoints().get(0).getValue().getInt64Value();
             })
-        .orElseThrow(
-            () ->
-                new AssertionError(
-                    "Metric not found for TLD: " + tld + ", Suffix: " + metricSuffix));
+        .get();
   }
 
   /** Mocks a TldServiceState with a single service status. */
