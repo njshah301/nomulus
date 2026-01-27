@@ -28,7 +28,6 @@ import com.google.api.services.monitoring.v3.model.MetricDescriptor;
 import com.google.api.services.monitoring.v3.model.TimeSeries;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.MoreExecutors;
 import google.registry.mosapi.MosApiModels.ServiceStatus;
 import google.registry.mosapi.MosApiModels.TldServiceState;
 import google.registry.testing.FakeClock;
@@ -72,9 +71,7 @@ public class MosApiMetricsTest {
     when(metricDescriptorsResource.create(anyString(), any(MetricDescriptor.class)))
         .thenReturn(createDescriptorRequest);
 
-    mosApiMetrics =
-        new MosApiMetrics(
-            monitoringClient, PROJECT_ID, clock, MoreExecutors.newDirectExecutorService());
+    mosApiMetrics = new MosApiMetrics(monitoringClient, PROJECT_ID, clock);
   }
 
   @Test

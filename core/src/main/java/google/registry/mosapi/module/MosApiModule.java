@@ -14,7 +14,6 @@
 
 package google.registry.mosapi.module;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import dagger.Module;
 import dagger.Provides;
 import google.registry.config.RegistryConfig.Config;
@@ -203,22 +202,5 @@ public final class MosApiModule {
   static ExecutorService provideMosapiTldExecutor(
       @Config("mosapiTldThreadCount") int threadPoolSize) {
     return Executors.newFixedThreadPool(threadPoolSize);
-  }
-
-  /**
-   * Provides executor for metrics reporting.
-   *
-   * <p>We are using a single thread to ensure metric batches are sent sequentially. This acts as a
-   * client-side rate limiter to avoid exceeding Google Cloud Monitoring API quotas (requests per
-   * second).
-   *
-   * @see <a href="https://cloud.google.com/monitoring/quotas">Google Cloud Monitoring Quotas</a>
-   */
-  @Provides
-  @Singleton
-  @Named("mosapiMetricsExecutor")
-  static ExecutorService provideMosapiMetricsExecutor() {
-    return Executors.newSingleThreadExecutor(
-        new ThreadFactoryBuilder().setNameFormat("mosapi-metrics-%d").build());
   }
 }

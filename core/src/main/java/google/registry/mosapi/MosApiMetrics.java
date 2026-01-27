@@ -37,13 +37,11 @@ import google.registry.mosapi.MosApiModels.ServiceStatus;
 import google.registry.mosapi.MosApiModels.TldServiceState;
 import google.registry.util.Clock;
 import jakarta.inject.Inject;
-import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
@@ -98,23 +96,16 @@ public class MosApiMetrics {
   private final String projectName;
   private final Clock clock;
   private final MonitoredResource monitoredResource;
-  private final ExecutorService executor;
   // Flag to ensure we only create descriptors once, lazily
   private final AtomicBoolean isDescriptorInitialized = new AtomicBoolean(false);
 
   @Inject
   public MosApiMetrics(
-      Monitoring monitoringClient,
-      @Config("projectId") String projectId,
-      Clock clock,
-      @Named("mosapiMetricsExecutor") ExecutorService executor) {
+      Monitoring monitoringClient, @Config("projectId") String projectId, Clock clock) {
     this.monitoringClient = monitoringClient;
     this.projectId = projectId;
     this.clock = clock;
-    this.executor = executor;
-
     this.projectName = PROJECT_RESOURCE_PREFIX + projectId;
-
     this.monitoredResource =
         new MonitoredResource()
             .setType(RESOURCE_TYPE_GLOBAL)
@@ -127,46 +118,42 @@ public class MosApiMetrics {
     if (isDescriptorInitialized.compareAndSet(false, true)) {
       createCustomMetricDescriptors();
     }
-    executor.execute(
-        () -> {
-          try {
-            pushBatchMetrics(states);
-          } catch (Exception e) {
-            logger.atSevere().withCause(e).log("Async batch metric push failed.");
-          }
-        });
+
+    try {
+      pushBatchMetrics(states);
+    } catch (Exception e) {
+      logger.atSevere().withCause(e).log("MosApi Batch metric push failed.");
+      throw new RuntimeException("Batch metric push failed", e);
+    }
   }
 
   // Defines the custom metrics in Cloud Monitoring
   private void createCustomMetricDescriptors() {
-    executor.execute(
-        () -> {
-          // 1. TLD Status Descriptor
-          createMetricDescriptor(
-              METRIC_TLD_STATUS,
-              DISPLAY_NAME_TLD_STATUS,
-              DESC_TLD_STATUS,
-              "INT64",
-              ImmutableList.of(LABEL_TLD));
+    // 1. TLD Status Descriptor
+    createMetricDescriptor(
+        METRIC_TLD_STATUS,
+        DISPLAY_NAME_TLD_STATUS,
+        DESC_TLD_STATUS,
+        "INT64",
+        ImmutableList.of(LABEL_TLD));
 
-          // 2. Service Status Descriptor
-          createMetricDescriptor(
-              METRIC_SERVICE_STATUS,
-              DISPLAY_NAME_SERVICE_STATUS,
-              DESC_SERVICE_STATUS,
-              "INT64",
-              ImmutableList.of(LABEL_TLD, LABEL_SERVICE_TYPE));
+    // 2. Service Status Descriptor
+    createMetricDescriptor(
+        METRIC_SERVICE_STATUS,
+        DISPLAY_NAME_SERVICE_STATUS,
+        DESC_SERVICE_STATUS,
+        "INT64",
+        ImmutableList.of(LABEL_TLD, LABEL_SERVICE_TYPE));
 
-          // 3. Emergency Usage Descriptor
-          createMetricDescriptor(
-              METRIC_EMERGENCY_USAGE,
-              DISPLAY_NAME_EMERGENCY_USAGE,
-              DESC_EMERGENCY_USAGE,
-              "DOUBLE",
-              ImmutableList.of(LABEL_TLD, LABEL_SERVICE_TYPE));
+    // 3. Emergency Usage Descriptor
+    createMetricDescriptor(
+        METRIC_EMERGENCY_USAGE,
+        DISPLAY_NAME_EMERGENCY_USAGE,
+        DESC_EMERGENCY_USAGE,
+        "DOUBLE",
+        ImmutableList.of(LABEL_TLD, LABEL_SERVICE_TYPE));
 
-          logger.atInfo().log("Metric descriptors ensured for project %s", projectId);
-        });
+    logger.atInfo().log("Metric descriptors ensured for project %s", projectId);
   }
 
   private void createMetricDescriptor(
