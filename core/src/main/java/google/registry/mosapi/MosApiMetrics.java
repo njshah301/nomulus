@@ -70,6 +70,7 @@ public class MosApiMetrics {
   private static final String METRIC_TLD_STATUS = "tld_status";
   private static final String METRIC_SERVICE_STATUS = "service_status";
   private static final String METRIC_EMERGENCY_USAGE = "emergency_usage";
+  private static final String GAUGE_METRIC_KIND = "GAUGE";
 
   // Metric Display Names & Descriptions
   private static final String DISPLAY_NAME_TLD_STATUS =
@@ -145,7 +146,6 @@ public class MosApiMetrics {
               METRIC_TLD_STATUS,
               DISPLAY_NAME_TLD_STATUS,
               DESC_TLD_STATUS,
-              "GAUGE",
               "INT64",
               ImmutableList.of(LABEL_TLD));
 
@@ -154,7 +154,6 @@ public class MosApiMetrics {
               METRIC_SERVICE_STATUS,
               DISPLAY_NAME_SERVICE_STATUS,
               DESC_SERVICE_STATUS,
-              "GAUGE",
               "INT64",
               ImmutableList.of(LABEL_TLD, LABEL_SERVICE_TYPE));
 
@@ -163,7 +162,6 @@ public class MosApiMetrics {
               METRIC_EMERGENCY_USAGE,
               DISPLAY_NAME_EMERGENCY_USAGE,
               DESC_EMERGENCY_USAGE,
-              "GAUGE",
               "DOUBLE",
               ImmutableList.of(LABEL_TLD, LABEL_SERVICE_TYPE));
 
@@ -175,7 +173,6 @@ public class MosApiMetrics {
       String metricTypeSuffix,
       String displayName,
       String description,
-      String metricKind,
       String valueType,
       ImmutableList<String> labelKeys) {
 
@@ -195,7 +192,7 @@ public class MosApiMetrics {
     MetricDescriptor descriptor =
         new MetricDescriptor()
             .setType(METRIC_DOMAIN + metricTypeSuffix)
-            .setMetricKind(metricKind)
+            .setMetricKind(GAUGE_METRIC_KIND)
             .setValueType(valueType)
             .setDisplayName(displayName)
             .setDescription(description)
