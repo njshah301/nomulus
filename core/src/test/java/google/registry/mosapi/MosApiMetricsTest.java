@@ -80,7 +80,7 @@ public class MosApiMetricsTest {
           ((Callable<?>) invocation.getArgument(0)).call();
           return true;
         });
-    mosApiMetrics = new MosApiMetrics(monitoringClient, PROJECT_ID, clock,lockHandler);
+    mosApiMetrics = new MosApiMetrics(monitoringClient, PROJECT_ID, clock, lockHandler);
   }
 
   @Test
