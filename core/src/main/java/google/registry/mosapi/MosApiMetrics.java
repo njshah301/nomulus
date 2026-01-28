@@ -105,8 +105,10 @@ public class MosApiMetrics {
 
   @Inject
   public MosApiMetrics(
-      Monitoring monitoringClient, @Config("projectId") String projectId,
-      Clock clock, LockHandler lockHandler) {
+      Monitoring monitoringClient,
+      @Config("projectId") String projectId,
+      Clock clock,
+      LockHandler lockHandler) {
     this.monitoringClient = monitoringClient;
     this.projectId = projectId;
     this.clock = clock;
@@ -131,6 +133,7 @@ public class MosApiMetrics {
       throw new RuntimeException("Batch metric push failed", e);
     }
   }
+
   /**
    * Attempts to create metric descriptors using a distributed lock.
    *
@@ -156,6 +159,7 @@ public class MosApiMetrics {
           "Lock '%s' in use. Another instance is handling metric creation. Skipping.", LOCK_NAME);
     }
   }
+
   // Defines the custom metrics in Cloud Monitoring
   private void createCustomMetricDescriptors() {
     // 1. TLD Status Descriptor

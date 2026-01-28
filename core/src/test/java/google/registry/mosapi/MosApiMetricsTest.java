@@ -63,7 +63,6 @@ public class MosApiMetricsTest {
   private final FakeClock clock = new FakeClock(DateTime.parse("2026-01-01T12:00:00Z"));
   private MosApiMetrics mosApiMetrics;
 
-
   @BeforeEach
   void setUp() throws IOException {
     when(monitoringClient.projects()).thenReturn(projects);
@@ -76,10 +75,11 @@ public class MosApiMetricsTest {
     when(metricDescriptorsResource.create(anyString(), any(MetricDescriptor.class)))
         .thenReturn(createDescriptorRequest);
     when(lockHandler.executeWithLocks(any(Callable.class), any(), any(), any()))
-        .thenAnswer(invocation -> {
-          ((Callable<?>) invocation.getArgument(0)).call();
-          return true;
-        });
+        .thenAnswer(
+            invocation -> {
+              ((Callable<?>) invocation.getArgument(0)).call();
+              return true;
+            });
     mosApiMetrics = new MosApiMetrics(monitoringClient, PROJECT_ID, clock, lockHandler);
   }
 
@@ -208,10 +208,10 @@ public class MosApiMetricsTest {
             })
         .get();
   }
+
   @Test
   void testRecordStates_skipsInitialization_ifLockNotAcquired() throws IOException {
-    when(lockHandler.executeWithLocks(any(Callable.class), any(), any(), any()))
-        .thenReturn(false);
+    when(lockHandler.executeWithLocks(any(Callable.class), any(), any(), any())).thenReturn(false);
 
     TldServiceState state = createTldState("test.tld", "UP", "UP");
     mosApiMetrics.recordStates(ImmutableList.of(state));
