@@ -106,7 +106,7 @@ public class MosApiMetrics {
   @Inject
   public MosApiMetrics(
       Monitoring monitoringClient, @Config("projectId") String projectId,
-      Clock clock,LockHandler lockHandler) {
+      Clock clock, LockHandler lockHandler) {
     this.monitoringClient = monitoringClient;
     this.projectId = projectId;
     this.clock = clock;
