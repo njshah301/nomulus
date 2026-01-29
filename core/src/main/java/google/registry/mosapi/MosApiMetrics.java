@@ -67,7 +67,7 @@ public class MosApiMetrics {
 
   // Lock Constants
   private static final String LOCK_NAME = "MosApiMetricCreation";
-  private static final Duration LOCK_LEASE_TIME = Duration.standardSeconds(30);
+  private static final Duration LOCK_LEASE_TIME = Duration.standardHours(1);
   // Metric Names
   private static final String METRIC_TLD_STATUS = "tld_status";
   private static final String METRIC_SERVICE_STATUS = "service_status";
@@ -124,15 +124,8 @@ public class MosApiMetrics {
   /** Accepts a list of states and processes them in a single async batch task. */
   public void recordStates(ImmutableList<TldServiceState> states) {
     // If this is the first time we are recording, ensure descriptors exist.
-    if (!isDescriptorInitialized.get()) {
-      ensureMetricDescriptorsWithLock();
-    }
-
-    try {
-      pushBatchMetrics(states);
-    } catch (Exception e) {
-      throw new RuntimeException("Batch metric push failed", e);
-    }
+    ensureMetricDescriptorsWithLock();
+    pushBatchMetrics(states);
   }
 
   /**
